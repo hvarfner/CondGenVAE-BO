@@ -6,13 +6,26 @@ import jax.numpy as jnp
 from jax import jit, grad, lax, random
 from jax.experimental import optimizers
 from jax.experimental import stax
-from jax.experimental.stax import Dense, FanOut, Relu, Softplus, Sigmoid
+from jax.experimental.stax import (Dense, FanOut, Relu, Softplus, Sigmoid,
+                                   BatchNorm, Conv, ConvTranspose, Flatten, LogSoftmax)
+from jax import make_jaxpr
 import numpy as np
 import tensorflow_probability as tfp
 from data import load_mnist
 
-LATENT_SIZE = 2
+LATENT_SIZE = 10
 IMAGE_SHAPE = (28, 28)
+
+def Reshape(new_shape):
+    """Layer construction function for flattening all but the leading dim."""
+    def init_fun(rng, input_shape):
+        output_shape = (input_shape[0],) + new_shape
+        return output_shape, ()
+    def apply_fun(params, inputs, **kwargs):
+        output_shape = (inputs.shape[0],) + new_shape
+        return jnp.reshape(inputs, output_shape)
+    return init_fun, apply_fun
+
 def gaussian_kl(mu, sigmasq):
     return -0.5 * jnp.sum(1 + jnp.log(sigmasq) - mu**2.0 * sigmasq)
 
@@ -58,16 +71,22 @@ def image_grid(nrow, ncol, image_vectors, image_shape):
 
 # define the VAE - one of FanOuts is softplus due to non-negative variance
 encoder_init, encode = stax.serial(
-    Dense(512), Relu,
-    Dense(512), Relu,
+    Reshape((1, 28, 28)),
+    Conv(32, (3,3), (1,1), padding='SAME'), Relu,
+    Conv(64, (3,3), (2,2), padding='SAME'), Relu,
+    Conv(64, (3,3), (1,1), padding='SAME'), Relu,
+    Conv(64, (3,3), (1,1), padding='SAME'), Relu,
+    Flatten,
+    Dense(32), Relu,
     FanOut(2),
     stax.parallel(Dense(LATENT_SIZE), stax.serial(Dense(LATENT_SIZE), Softplus)),
 )
 
 decoder_init, decode = stax.serial(
-    Dense(512), Relu,
-    Dense(512), Relu,
-    Dense(np.prod(IMAGE_SHAPE)),
+    Dense(int(np.prod(IMAGE_SHAPE) / 4 * 64)), Relu,
+    Reshape((14 ,14, 64)),
+    ConvTranspose(32, (3,3), (2,2), padding='SAME'), Relu,
+    Conv(1, (3,3), (1,1), padding='SAME'), Sigmoid,
 )
 
 if __name__ == '__main__':
@@ -76,14 +95,22 @@ if __name__ == '__main__':
     batch_size = 256
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
-    train_images = load_mnist(train=True)
-    test_images = load_mnist(train=True)
+    train_images, train_labels = load_mnist(train=True)
+    test_images, test_labels = load_mnist(train=False)
+    
+    #trainlabels_onehot = np.zeros((len(train_labels), 10))
+    #testlabels_onehot = np.zeros((len(test_labels), 10))
+    #trainlabels_onehot[np.arange(len(trainlabels_onehot)), train_labels] = 1
+    #testlabels_onehot[np.arange(len(testlabels_onehot)), test_labels] = 1
+    #train_labels = trainlabels_onehot
+    #test_labels = testlabels_onehot
+
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
     
     imfile = os.path.join(os.path.join(os.getcwd(), "tmp/"), "mnist_vae_{:03d}.png")
     encoder_init_rng, decoder_init_rng = random.split(random.PRNGKey(2))
-    _, encoder_init_params = encoder_init(encoder_init_rng, (batch_size, np.prod(IMAGE_SHAPE)))
+    _, encoder_init_params = encoder_init(encoder_init_rng, (batch_size, 1,) + IMAGE_SHAPE)
     _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, LATENT_SIZE))
     init_params = (encoder_init_params, decoder_init_params)
 
@@ -110,14 +137,14 @@ if __name__ == '__main__':
         return lax.fori_loop(0, num_batches, body_fun, opt_state)
 
 
-    @jit
-    def evaluate(opt_state, images):
-        params = get_params(opt_state)
-        elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
-        binarized_test = random.bernoulli(data_rng, test_images)
-        test_elbo = elbo(elbo_rng, params, binarized_test) / images.shape[0]
-        sampled_images = image_sample(image_rng, params, nrow, ncol)
-        return test_elbo, sampled_images
+        @jit
+        def evaluate(opt_state, images):
+            params = get_params(opt_state)
+            elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
+            binarized_test = random.bernoulli(data_rng, test_images)
+            test_elbo = elbo(elbo_rng, params, binarized_test) / images.shape[0]
+            sampled_images = image_sample(image_rng, params, nrow, ncol)
+            return test_elbo, sampled_images
 
     opt_state = opt_init(init_params)
     for epoch in range(num_epochs):

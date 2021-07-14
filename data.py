@@ -15,8 +15,9 @@ def numpy_collate(batch):
 
 def load_mnist(train=True):
     mnist_dataset_test = MNIST('/tmp/mnist/', download=True, train=train)
-    images_mnist = jnp.array(mnist_dataset_test.test_data.numpy().reshape(len(mnist_dataset_test.test_data), -1), dtype=jnp.float32)
-    return images_mnist
+    images_mnist = jnp.array(mnist_dataset_test.test_data.numpy(), dtype=jnp.float32)
+    labels_mnist = jnp.array(mnist_dataset_test.test_labels)
+    return images_mnist, labels_mnist
 
 
 class NumpyLoader(data.DataLoader):
