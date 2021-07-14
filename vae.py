@@ -72,7 +72,7 @@ decoder_init, decode = stax.serial(
 
 if __name__ == '__main__':
     step_size = 0.001
-    num_epochs = 10
+    num_epochs = 100
     batch_size = 256
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
