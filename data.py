@@ -1,6 +1,7 @@
+import numpy as np
 import jax.numpy as jnp
 from torch.utils import data
-from torchvision.datasets import MNIST, FashionMNIST
+from torchvision.datasets import MNIST
 
 
 def numpy_collate(batch):
@@ -13,10 +14,13 @@ def numpy_collate(batch):
         return np.array(batch)
 
 
-def load_mnist(train=True):
+def load_mnist(train=True, reshape=True):
     mnist_dataset_test = MNIST('/tmp/mnist/', download=True, train=train)
-    images_mnist = jnp.array(mnist_dataset_test.test_data.numpy(), dtype=jnp.float32)
-    labels_mnist = jnp.array(mnist_dataset_test.test_labels)
+    if reshape  :
+        images_mnist = jnp.array(mnist_dataset_test.test_data.numpy().reshape(len(mnist_dataset_test.test_data), -1), dtype=jnp.float32)
+    else:
+        images_mnist = jnp.array(np.expand_dims(mnist_dataset_test.test_data.numpy(), axis=3), dtype=jnp.float32)
+    labels_mnist = jnp.array(mnist_dataset_test.test_labels, dtype=jnp.float32)
     return images_mnist, labels_mnist
 
 

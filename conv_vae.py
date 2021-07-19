@@ -72,7 +72,7 @@ def image_grid(nrow, ncol, image_vectors, image_shape):
 # define the VAE - one of FanOuts is softplus due to non-negative variance
 encoder_init, encode = stax.serial(
     Reshape((1, 28, 28)),
-    Conv(32, (3,3), (1,1), padding='SAME'), Relu,
+    Conv(64, (3,3), (1,1), padding='SAME'), Relu,
     Conv(64, (3,3), (2,2), padding='SAME'), Relu,
     Conv(64, (3,3), (1,1), padding='SAME'), Relu,
     Conv(64, (3,3), (1,1), padding='SAME'), Relu,
@@ -83,10 +83,11 @@ encoder_init, encode = stax.serial(
 )
 
 decoder_init, decode = stax.serial(
-    Dense(int(np.prod(IMAGE_SHAPE) / 4 * 64)), Relu,
-    Reshape((14 ,14, 64)),
+    Dense(14 * 14 * 64), Relu, 
+    Reshape((14, 14, 64)),
     ConvTranspose(32, (3,3), (2,2), padding='SAME'), Relu,
     Conv(1, (3,3), (1,1), padding='SAME'), Sigmoid,
+    Flatten,
 )
 
 if __name__ == '__main__':
@@ -116,14 +117,13 @@ if __name__ == '__main__':
 
     opt_init, opt_update, get_params = optimizers.momentum(step_size, mass=0.9)
     train_images = jax.device_put(train_images)
-    test_images = test_images[0:5000]
-    test_images = jax.device_put(test_images)
+    test_images = jax.device_put(test_images)[0:5000]
 
 
     def binarize_batch(rng, i, images):
         i  = i % num_batches
         batch = lax.dynamic_slice_in_dim(images, i * batch_size, batch_size)
-        return random.bernoulli(rng, batch)
+        return random.bernoulli(rng, batch).astype(jnp.float32)
 
 
     @jit
