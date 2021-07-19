@@ -9,7 +9,7 @@ from jax import jit, grad, lax, random
 from jax.experimental import optimizers
 from jax.experimental import stax
 from jax.experimental.stax import Dense, FanOut, Relu, Softplus,\
-     Sigmoid, Conv, BatchNorm, Flatten, ConvTranspose
+     Sigmoid, Conv, BatchNorm, Flatten, ConvTranspose, Softmax
 from jax.random import multivariate_normal
 import numpy as np
 import tensorflow_probability as tfp
@@ -85,11 +85,13 @@ def init_vanilla_vae():
     encoder_init, encode = stax.serial(
         Dense(512), Relu,
         Dense(512), Relu,
+        Dense(256), Relu,
         FanOut(2),
         stax.parallel(Dense(LATENT_SIZE), stax.serial(Dense(LATENT_SIZE), Softplus)),
     )
 
     decoder_init, decode = stax.serial(
+        Dense(256), Relu,
         Dense(512), Relu,
         Dense(512), Relu,
         Dense(np.prod(IMAGE_SHAPE))
@@ -97,31 +99,21 @@ def init_vanilla_vae():
     return encoder_init, encode, decoder_init, decode
 
 
-def init_conv_vae():
-    encoder_init, encode = stax.serial(Conv(32, (3, 3), padding="SAME"), Relu,
-                                 Conv(64, (3, 3), (2, 2), padding="SAME"), Relu,
-                                 Conv(64, (3, 3), padding="SAME"), Relu,
-                                 Conv(64, (3, 3), padding="SAME"), Relu,
-                                 Flatten,
-                                 Dense(32), Relu,
-                                 FanOut(2),
-                                 stax.parallel(Dense(LATENT_SIZE), stax.serial(Dense(LATENT_SIZE), Softplus)),
-    )
-    decoder_init, decode = stax.serial(Dense(12544), Relu,
-                                    Reshape((14, 14, 64)),
-                                    ConvTranspose(32, (3, 3), (2, 2), padding="SAME"), Relu,
-                                    Conv(1, (1, 1), padding="SAME"), Relu)
 
-    return encoder_init, encode, decoder_init, decode
-
+def mnist_predictor():
+    predictor_init, predict = stax.serial(Dense(64), Relu,
+                                          Dense(64), Relu,
+                                          Dense(10), Softmax,
+                                        )
+    return predictor_init, predict
 
 if __name__ == '__main__':
     vae_type = sys.argv[1]
     reshape = vae_type == 'vanilla'
     beta = 1
     step_size = 0.001
-    num_epochs = 50
-    batch_size = 16
+    num_epochs = 10
+    batch_size = 256
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
     train_images, train_labels = load_mnist(train=True, reshape=reshape)
@@ -130,7 +122,7 @@ if __name__ == '__main__':
     num_batches = num_complete_batches + bool(leftover)
     
     imfile = os.path.join(os.path.join(os.getcwd(), "tmp/"), "mnist_vae_{:03d}.png")
-    encoder_init_rng, decoder_init_rng = random.split(random.PRNGKey(2))
+    encoder_init_rng, decoder_init_rng, predictor_init_rng = random.split(random.PRNGKey(2), 3)
     if vae_type == 'vanilla':
         define_vae = init_vanilla_vae
         input_shape = (batch_size, np.prod(IMAGE_SHAPE))
@@ -139,14 +131,16 @@ if __name__ == '__main__':
         input_shape = (batch_size, ) + IMAGE_SHAPE + (1, )
 
     encoder_init, encode, decoder_init, decode = define_vae()
+    predictor_init, predict = mnist_predictor()
     _, encoder_init_params = encoder_init(encoder_init_rng, input_shape)
     _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, LATENT_SIZE))
+    _, predictor_params = predictor_init(predictor_init_rng, (batch_size, LATENT_SIZE))
     init_params = (encoder_init_params, decoder_init_params)
 
     opt_init, opt_update, get_params = optimizers.momentum(step_size, mass=0.9)
-    train_images = jax.device_put(train_images[0:100])
-    test_images = jax.device_put(test_images[0:50])
-    test_labels = test_labels[0:500]
+    train_images = jax.device_put(train_images)
+    test_images = jax.device_put(test_images[0:5000])
+    test_labels = test_labels[0:5000]
 
 
     def binarize_batch(rng, i, images):
@@ -160,8 +154,9 @@ if __name__ == '__main__':
         def body_fun(i, opt_state):
             elbo_rng, data_rng = random.split(random.fold_in(rng, i))
             batch = binarize_batch(data_rng, i, images)
-            loss = lambda params: -elbo(elbo_rng, params, batch, beta=beta) / batch_size
-            grads = grad(loss)(get_params(opt_state))
+            loss_elbo = lambda params: -elbo(elbo_rng, params, batch, beta=beta) / batch_size
+            #loss_regressor = lambda
+            grads = grad(loss_elbo)(get_params(opt_state))
             return opt_update(i, grads, opt_state)
         return lax.fori_loop(0, num_batches, body_fun, opt_state)
 
@@ -185,6 +180,7 @@ if __name__ == '__main__':
         plt.imsave(imfile.format(epoch), sampled_images, cmap=plt.cm.gray)
     plt.scatter(latent_samples[:, 0], latent_samples[:, 1], c=test_labels,\
         cmap='viridis')
+    cb = plt.colorbar()
+    cb.set_ticklabels(list(range(10)))
     plt.show()
-
 # TODO CHECK IN ENCODE WHAT SHAPE STUFF IS!

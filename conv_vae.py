@@ -69,26 +69,23 @@ def image_grid(nrow, ncol, image_vectors, image_shape):
                     for _ in range(nrow)]).T
 
 
-# define the VAE - one of FanOuts is softplus due to non-negative variance
-encoder_init, encode = stax.serial(
-    Reshape((1, 28, 28)),
-    Conv(64, (3,3), (1,1), padding='SAME'), Relu,
-    Conv(64, (3,3), (2,2), padding='SAME'), Relu,
-    Conv(64, (3,3), (1,1), padding='SAME'), Relu,
-    Conv(64, (3,3), (1,1), padding='SAME'), Relu,
-    Flatten,
-    Dense(32), Relu,
-    FanOut(2),
-    stax.parallel(Dense(LATENT_SIZE), stax.serial(Dense(LATENT_SIZE), Softplus)),
-)
 
-decoder_init, decode = stax.serial(
-    Dense(14 * 14 * 64), Relu, 
-    Reshape((14, 14, 64)),
-    ConvTranspose(32, (3,3), (2,2), padding='SAME'), Relu,
-    Conv(1, (3,3), (1,1), padding='SAME'), Sigmoid,
-    Flatten,
-)
+def init_conv_vae():
+    encoder_init, encode = stax.serial(Conv(32, (3, 3), padding="SAME"), Relu,
+                                 Conv(64, (3, 3), (2, 2), padding="SAME"), Relu,
+                                 Conv(64, (3, 3), padding="SAME"), Relu,
+                                 Conv(64, (3, 3), padding="SAME"), Relu,
+                                 Flatten,
+                                 Dense(32), Relu,
+                                 FanOut(2),
+                                 stax.parallel(Dense(LATENT_SIZE), stax.serial(Dense(LATENT_SIZE), Softplus)),
+    )
+    decoder_init, decode = stax.serial(Dense(12544), Relu,
+                                    Reshape((14, 14, 64)),
+                                    ConvTranspose(32, (3, 3), (2, 2), padding="SAME"), Relu,
+                                    Conv(1, (1, 1), padding="SAME"), Relu)
+
+    return encoder_init, encode, decoder_init, decode
 
 if __name__ == '__main__':
     step_size = 0.001
