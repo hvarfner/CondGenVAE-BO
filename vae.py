@@ -134,7 +134,7 @@ def mnist_regressor():
 if __name__ == '__main__':
     vae_type = sys.argv[1]
     reshape = vae_type == 'vanilla'
-    beta = 0.1
+    beta = 0.10
     pred_weight = 20
     step_size = 0.001
     num_epochs = 50
