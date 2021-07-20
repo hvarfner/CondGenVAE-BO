@@ -75,7 +75,7 @@ def elbo_and_pred_loss(rng, params, images, labels, beta=1, pred_weight=20):
     # ELBO loss
     logits = decode(decoder_params, samples)
     elbo = bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
-    
+
     # MSE loss
     output = predict(predictor_params, samples)
     error = labels - output
@@ -84,8 +84,16 @@ def elbo_and_pred_loss(rng, params, images, labels, beta=1, pred_weight=20):
 
 
 # TODO create the iwelbo as well
-def iwelbo(rng, params, images, n_samples=10):
-    pass
+def iwelbo(rng, params, images, n_samples=32):
+    iwelbo_loss = 0
+    for i in range(n_samples):
+        rng = random.PRNGKey(random.fold_in(i))
+        encoder_params, decoder_params, _ = params
+        mu_z, sigmasq_z = encode(encoder_params, images)
+        sample = gaussian_sample(rng, mu_z, sigmasq_z)
+        logits = decode(decoder_params, sample)
+        iwelbo_loss += bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
+    return iwelbo_loss / n_samples
 
 
 def image_sample(rng, params, nrow, ncol):    
