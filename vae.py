@@ -124,7 +124,7 @@ def init_vanilla_vae():
         Dense(256), Relu,
         FanOut(2),
         stax.parallel(Dense(LATENT_SIZE), stax.serial(Dense(LATENT_SIZE), Softplus)),
-    )
+    )   
 
     decoder_init, decode = stax.serial(
         Dense(256), Relu,
@@ -144,8 +144,13 @@ def mnist_regressor():
     return predictor_init, predict
 
 if __name__ == '__main__':
-    vae_type = sys.argv[1]
+    # if wanting to use a fully connected VAE or Convolutional (not yet implemented)
+    if len(sys.argv) == 1:
+        vae_type = 'vanilla'
+    else:
+        vae_type = sys.argv[1]
     reshape = vae_type == 'vanilla'
+
     beta = 0.10
     pred_weight = 20
     n_samples = 16
@@ -161,6 +166,8 @@ if __name__ == '__main__':
     
     imfile = os.path.join(os.path.join(os.getcwd(), "tmp/"), "mnist_vae_{:03d}.png")
     encoder_init_rng, decoder_init_rng, predictor_init_rng = random.split(random.PRNGKey(2), 3)
+    
+
     if vae_type == 'vanilla':
         define_vae = init_vanilla_vae
         input_shape = (batch_size, np.prod(IMAGE_SHAPE))
