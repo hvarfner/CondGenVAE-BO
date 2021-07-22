@@ -67,20 +67,24 @@ def regression_loss(rng, params, images, labels):
     error = labels - output
     return jnp.mean(jnp.square(error))
 
-def elbo_and_pred_loss(rng, params, images, labels, beta=1, pred_weight=20):
-    encoder_params, decoder_params, predictor_params = params
-    mu_z, sigmasq_z = encode(encoder_params, images)
-    samples = gaussian_sample(rng, mu_z, sigmasq_z)
+def elbo_and_pred_loss(rng, params, images, labels, beta=1, pred_weight=20, n_samples=1):
+    iwelbo_loss = 0
+    for i in range(n_samples):
+        sample_rng, predict_rng = random.split(random.fold_in(rng, i))
+        encoder_params, decoder_params, _ = params
+        mu_z, sigmasq_z = encode(encoder_params, images)
+        samples = gaussian_sample(sample_rng, mu_z, sigmasq_z)
+        logits = decode(decoder_params, samples)
+        iwelbo_loss += bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
+    iwelbo_loss /= n_samples
     
-    # ELBO loss
-    logits = decode(decoder_params, samples)
-    elbo = bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
-
     # MSE loss
+    mu_z, sigmasq_z = encode(encoder_params, images)
+    samples = gaussian_sample(predict_rng, mu_z, sigmasq_z) 
     output = predict(predictor_params, samples)
     error = labels - output
     mse = jnp.mean(jnp.square(error))
-    return pred_weight * mse - elbo
+    return pred_weight * mse - iwelbo_loss
 
 
 # TODO create the iwelbo as well
@@ -144,6 +148,7 @@ if __name__ == '__main__':
     reshape = vae_type == 'vanilla'
     beta = 0.10
     pred_weight = 20
+    n_samples = 16
     step_size = 0.001
     num_epochs = 50
     batch_size = 256
@@ -190,7 +195,7 @@ if __name__ == '__main__':
             elbo_rng, data_rng = random.split(random.fold_in(rng, i))
             batch, batch_labels = binarize_batch(data_rng, i, images, labels)
             loss = lambda params: elbo_and_pred_loss(\
-                elbo_rng, params, batch, batch_labels, beta=beta, pred_weight=pred_weight) / batch_size
+                elbo_rng, params, batch, batch_labels, beta=beta, pred_weight=pred_weight, n_samples=n_samples) / batch_size
             grads = grad(loss)(get_params(opt_state))
             return opt_update(i, grads, opt_state)
         return lax.fori_loop(0, num_batches, body_fun, opt_state)
