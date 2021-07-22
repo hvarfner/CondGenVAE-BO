@@ -67,7 +67,22 @@ def regression_loss(rng, params, images, labels):
     error = labels - output
     return jnp.mean(jnp.square(error))
 
-def elbo_and_pred_loss(rng, params, images, labels, beta=1, pred_weight=20, n_samples=1):
+def elbo_and_pred_loss(rng, params, images, labels, beta=1, pred_weight=20, n_samples=None):
+    encoder_params, decoder_params, predictor_params = params
+    mu_z, sigmasq_z = encode(encoder_params, images)
+    samples = gaussian_sample(rng, mu_z, sigmasq_z)
+
+    # ELBO loss
+    logits = decode(decoder_params, samples)
+    elbo = bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
+
+    # MSE loss
+    output = predict(predictor_params, samples)
+    error = labels - output
+    mse = jnp.mean(jnp.square(error))
+    return pred_weight * mse - elbo
+
+def iwelbo_and_pred_loss(rng, params, images, labels, beta=1, pred_weight=20, n_samples=1):
     iwelbo_loss = 0
     for i in range(n_samples):
         sample_rng, predict_rng = random.split(random.fold_in(rng, i))
