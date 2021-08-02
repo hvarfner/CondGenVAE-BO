@@ -2,13 +2,19 @@ import sys
 import os
 import json
 import pickle
+from functools import partial
 import hypermapper
+import numpy as np
+import jax.numpy as jnp
+import onnxruntime
+import matplotlib.pyplot as plt
 from data import load_mnist
 from jax.experimental import optimizers
 from vae import init_vanilla_vae, mnist_regressor
 from vae import quantity_of_interest
-
-
+from objective import objective_function
+import matplotlib
+matplotlib.use('TkAgg')
 
 if __name__ == '__main__':
 
@@ -26,17 +32,22 @@ if __name__ == '__main__':
     reshape = vae_type == 'vanilla'
     step_size = 0.001
     # how many points are sampled before the VAE is retrained
-    retrain_every = 0
-    best_opt_state = optimizers.pack_optimizer_state(trained_params)
-    opt_init, opt_update, get_params = optimizers.momentum(step_size, mass=0.9)
-    params = get_params(best_opt_state)
-    _, encode, _, decode = init_vanilla_vae()
-    _, predict = mnist_regressor()
+    def placeholder_classifier(point):
+        return np.random.uniform(low=0, high=np.sum(point), size=10)
     
-    train_images, train_labels = load_mnist(train=True, reshape=reshape)
-    print(train_images[0])
-    train_images = train_images /255
-    train_labels = train_labels / 9
+    best_opt_state = optimizers.pack_optimizer_state(trained_params)
+    opt_init, opt_update, get_params = optimizers.momentum(0, mass=0)
+    params = get_params(best_opt_state)
+    encoder_params, decoder_params, _ = params
+    _, encode, _, decode = init_vanilla_vae()
+    objective = partial(objective_function, 
+                        decode=decode,
+                        decoder_params=decoder_params
+                )
+    print(objective(np.array([1,2])))
+    
+    
+    
     
     # TODO
     # TODO

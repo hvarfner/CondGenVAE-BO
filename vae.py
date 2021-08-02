@@ -68,19 +68,6 @@ def regression_loss(rng, params, images, labels):
     error = labels - output
     return jnp.mean(jnp.square(error))
 
-def aelbo_and_pred_loss(rng, params, images, labels, beta, pred_weight, n_samples=None):
-    encoder_params, decoder_params, predictor_params = params
-    mu_z, sigmasq_z = encode(encoder_params, images)
-    samples = gaussian_sample(rng, mu_z, sigmasq_z)
-    # ELBO loss
-    logits = decode(decoder_params, samples)
-    elbo = bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
-
-    # MSE loss
-    output = predict(predictor_params, samples)
-    error = labels - output
-    mse = jnp.mean(jnp.square(error))
-    return pred_weight * mse - elbo
 
 def elbo_and_pred_loss(rng, params, images, labels, beta, pred_weight, n_samples=1):
     iwelbo_loss = 0
@@ -250,7 +237,8 @@ if __name__ == '__main__':
     def evaluate(opt_state, images, labels, binarize=False):
         params = get_params(opt_state)
         elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
-
+        
+        # Relic from when the MNIST images where binarized
         binarized_test = test_images
 
         test_elbo = elbo(elbo_rng, params, binarized_test, beta=1) / images.shape[0]
