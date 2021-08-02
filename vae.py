@@ -17,7 +17,7 @@ import tensorflow_probability as tfp
 from data import load_mnist
 from utils import plot_latent_space
 
-LATENT_SIZE = 10
+LATENT_SIZE = 2
 IMAGE_SHAPE = (28, 28)
 
 def Reshape(new_shape):
@@ -123,6 +123,8 @@ def image_sample(rng, params, nrow, ncol):
     latent_sample = random.normal(code_rng, (nrow * ncol, LATENT_SIZE))
     logits = decode(decoder_params, latent_sample)
     sampled_images = random.bernoulli(image_rng, jnp.logaddexp(0., logits))
+    sampled_images = jnp.logaddexp(0., logits)
+    
     return image_grid(nrow, ncol, sampled_images, IMAGE_SHAPE)
 
 
@@ -179,7 +181,9 @@ if __name__ == '__main__':
     else:
         vae_type = sys.argv[1]
     reshape = vae_type == 'vanilla'
-    BINARIZE = FALSE
+
+    binarize = False
+    TEST_SIZE = 7500
     beta_init = 0.01
     beta_final = 1
     pred_weight = 1000
@@ -187,7 +191,6 @@ if __name__ == '__main__':
     step_size = 0.001
     num_epochs = 50
     batch_size = 256
-    TEST_SIZE = 7500
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
     train_images, train_labels = load_mnist(train=True, reshape=reshape)
@@ -224,18 +227,18 @@ if __name__ == '__main__':
     test_labels = jax.device_put(test_labels[0:TEST_SIZE].reshape(-1, 1))
 
 
-    def binarize_batch(rng, i, images, labels):
+    def split_and_binarize_batch(rng, i, images, labels, binarize):
         i  = i % num_batches
         batch = lax.dynamic_slice_in_dim(images, i * batch_size, batch_size)
         batch_labels = lax.dynamic_slice_in_dim(labels, i * batch_size, batch_size)
-        return random.bernoulli(rng, batch).astype(jnp.float32), batch_labels
 
+        return batch, batch_labels
 
     @jit
-    def run_epoch(rng, opt_state, images, labels, beta=1):
+    def run_epoch(rng, opt_state, images, labels, beta=1, binarize=False):
         def body_fun(i, opt_state):
             elbo_rng, data_rng = random.split(random.fold_in(rng, i))
-            batch, batch_labels = binarize_batch(data_rng, i, images, labels)
+            batch, batch_labels = split_and_binarize_batch(data_rng, i, images, labels, binarize=binarize)
             loss = lambda params: elbo_and_pred_loss(\
                 elbo_rng, params, batch, batch_labels, beta, pred_weight, n_samples=n_samples) / batch_size
             grads = grad(loss)(get_params(opt_state))
@@ -244,10 +247,12 @@ if __name__ == '__main__':
 
 
     @jit
-    def evaluate(opt_state, images, labels):
+    def evaluate(opt_state, images, labels, binarize=False):
         params = get_params(opt_state)
         elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
-        binarized_test = random.bernoulli(data_rng, test_images)
+
+        binarized_test = test_images
+
         test_elbo = elbo(elbo_rng, params, binarized_test, beta=1) / images.shape[0]
         test_mse = regression_loss(elbo_rng, params, binarized_test, labels)
         sampled_images = image_sample(image_rng, params, nrow, ncol)
@@ -259,8 +264,8 @@ if __name__ == '__main__':
     beta_schedule = np.linspace(beta_init, beta_final, num_epochs)
     for epoch in range(num_epochs):
         tic = time.time()
-        opt_state = run_epoch(random.PRNGKey(epoch), opt_state, train_images, train_labels, beta=beta_schedule[epoch])
-        test_elbo, test_mse, sampled_images, latent_samples = evaluate(opt_state, test_images, test_labels)
+        opt_state = run_epoch(random.PRNGKey(epoch), opt_state, train_images, train_labels, beta=beta_schedule[epoch], binarize=binarize)
+        test_elbo, test_mse, sampled_images, latent_samples = evaluate(opt_state, test_images, test_labels, binarize=binarize)
 
         print("Ep. {: 3d} ---- ELBO: {} ---- MSE: {} ---- Time: {:.3f} sec".format(epoch, test_elbo, test_mse, time.time() - tic))
         plt.imsave(imfile.format(epoch), sampled_images, cmap=plt.cm.gray)
