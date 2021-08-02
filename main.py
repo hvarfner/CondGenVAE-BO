@@ -3,7 +3,7 @@ import os
 import json
 import pickle
 from functools import partial
-import hypermapper
+from hypermapper import optimizer
 import numpy as np
 import jax.numpy as jnp
 import onnxruntime
@@ -17,9 +17,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 if __name__ == '__main__':
-
-    with open('objective/mnist_scenario.json', 'r') as f:
-        parameters_file = json.load(f)
+    optimize_digit = 1
 
     with open('trained_parameters.pkl', 'rb') as f:
         trained_params = pickle.load(f)
@@ -42,10 +40,13 @@ if __name__ == '__main__':
     _, encode, _, decode = init_vanilla_vae()
     objective = partial(objective_function, 
                         decode=decode,
-                        decoder_params=decoder_params
+                        decoder_params=decoder_params,
+                        digit=optimize_digit
                 )
-    print(objective(np.array([1,2])))
-    
+    optimizer.optimize('objective/mnist_scenario.json', objective)
+    X = np.array(decode(decoder_params, np.array([-3.998724537364795,-3.8874919146778435]).reshape(-1, 2)).reshape(28, 28)) 
+    plt.imshow(X)
+    plt.show()
     
     
     

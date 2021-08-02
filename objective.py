@@ -18,9 +18,11 @@ import onnxruntime
 # Then, import objective from here and define a partial with all the stuff previously mentioned
 
 def objective_function(point, decode, decoder_params, digit=0):
-    X = np.array(decode(decoder_params, point.reshape(-1, 2)).reshape(1, 1, 28, 28)) 
+    point_reformat = np.array([point[f'x{n}'] for n in range(1, 1 + len(point))])
+    print(point_reformat)
+    X = np.array(decode(decoder_params, point_reformat.reshape(-1, 2)).reshape(1, 1, 28, 28)) 
     onnx_session = onnxruntime.InferenceSession('mnist_pred.onnx')
     onnx_inputs = {onnx_session.get_inputs()[0].name : X}
     onnx_predictions = onnx_session.run(None, onnx_inputs)[0]
-    return onnx_predictions[:, digit]
+    return -onnx_predictions[:, digit][0]
     

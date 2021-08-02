@@ -4,7 +4,7 @@
     "design_of_experiment": {
         "number_of_samples": 3
     },
-    "optimization_iterations": 20,
+    "optimization_iterations": 50,
     "models":{
         "model": "gaussian_process"
     },
@@ -12,11 +12,11 @@
     "input_parameters" : {
         "x1": {
             "parameter_type" : "real",
-	    "values" : [-3, 3]
+	    "values" : [-4, 4]
         },
         "x2": {
             "parameter_type" : "real",
-            "values" : [-3, 3]
+            "values" : [-4, 4]
         }
     }
 }
