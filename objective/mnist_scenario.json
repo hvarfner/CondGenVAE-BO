@@ -12,11 +12,11 @@
     "input_parameters" : {
         "x1": {
             "parameter_type" : "real",
-	    "values" : [-1500, 1500],
+	    "values" : [-3, 3]
         },
         "x2": {
             "parameter_type" : "real",
-            "values" : [-1500, 1500],
+            "values" : [-3, 3]
         }
     }
 }

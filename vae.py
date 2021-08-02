@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import pickle
 import matplotlib
 import matplotlib.pyplot as plt
 import jax
@@ -16,7 +17,7 @@ import tensorflow_probability as tfp
 from data import load_mnist
 from utils import plot_latent_space
 
-LATENT_SIZE = 2
+LATENT_SIZE = 10
 IMAGE_SHAPE = (28, 28)
 
 def Reshape(new_shape):
@@ -178,7 +179,7 @@ if __name__ == '__main__':
     else:
         vae_type = sys.argv[1]
     reshape = vae_type == 'vanilla'
-
+    BINARIZE = FALSE
     beta_init = 0.01
     beta_final = 1
     pred_weight = 1000
@@ -273,9 +274,10 @@ if __name__ == '__main__':
     elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
     binarized_test = random.bernoulli(data_rng, test_images) 
     sampled_images = np.random.choice(TEST_SIZE, 20, replace=False)
-    predictions = predict_image(image_rng, params, binarized_test[sampled_images])
-    actual_labels = test_labels[sampled_images]
-    print('Predictions: ', predictions * 9)
-    print('Actual: ', actual_labels * 9)
+    
+    trained_params = optimizers.unpack_optimizer_state(opt_state)
+    with open('trained_parameters.pkl', 'wb') as f:
+        pickle.dump(trained_params, f)
     plt.show()
+    
 # TODO CHECK IN ENCODE WHAT SHAPE STUFF IS!
