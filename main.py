@@ -14,7 +14,7 @@ from jax.experimental import optimizers
 from vae import init_vanilla_vae, mnist_regressor
 from vae import quantity_of_interest
 from utils import get_best_point
-from objective import objective_function, ambigous_objective_function
+from objective import objective_function, brightest_item_objective_function
 import matplotlib
 
 matplotlib.use('TkAgg')
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     latent_size = int(sys.argv[1])
     n_iter = 50
     optimize_digit = 3
-
+    fashion = True
     '''
     Label 	Description
     0 	T-shirt/top
@@ -37,10 +37,14 @@ if __name__ == '__main__':
     8 	Bag
     9 	Ankle boot
     '''
-
-    with open(f'trained_parameters_{latent_size}.pkl', 'rb') as f:
-        trained_params = pickle.load(f)
+    if fashion:
+        with open(f'models/trained_parameters_{latent_size}_fashion.pkl', 'rb') as f:
+            trained_params = pickle.load(f)
+    else:
+        with open(f'models/trained_parameters_{latent_size}.pkl', 'rb') as f:
+            trained_params = pickle.load(f)
     
+
     # if wanting to use a fully connected VAE or Convolutional (not yet implemented)
     if len(sys.argv) == 1:
         vae_type = 'vanilla'
@@ -54,7 +58,7 @@ if __name__ == '__main__':
     params = get_params(best_opt_state)
     encoder_params, decoder_params, _ = params
     _, encode, _, decode = init_vanilla_vae()
-    objective = partial(objective_function, 
+    objective = partial(brightest_item_objective_function, 
                         decode=decode,
                         decoder_params=decoder_params,
                         digit=optimize_digit

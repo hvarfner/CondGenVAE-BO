@@ -272,8 +272,13 @@ if __name__ == '__main__':
     sampled_images = np.random.choice(TEST_SIZE, 20, replace=False)
     
     trained_params = optimizers.unpack_optimizer_state(opt_state)
-    with open(f'trained_parameters_{LATENT_SIZE}.pkl', 'wb') as f:
-        pickle.dump(trained_params, f)
+    if FASHION:
+        with open(f'trained_parameters_{LATENT_SIZE}_fashion.pkl', 'wb') as f:
+            pickle.dump(trained_params, f)
+    
+    else:
+        with open(f'trained_parameters_{LATENT_SIZE}.pkl', 'wb') as f:
+            pickle.dump(trained_params, f)
     plt.show()
     
 # TODO CHECK IN ENCODE WHAT SHAPE STUFF IS!
