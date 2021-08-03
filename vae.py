@@ -16,6 +16,8 @@ import numpy as np
 import tensorflow_probability as tfp
 from data import load_mnist
 from utils import plot_latent_space
+import argparse
+
 
 LATENT_SIZE = 2
 IMAGE_SHAPE = (28, 28)
