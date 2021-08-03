@@ -19,8 +19,9 @@ from utils import plot_latent_space
 import argparse
 
 
-LATENT_SIZE = 2
+LATENT_SIZE = 6
 IMAGE_SHAPE = (28, 28)
+FASHION = True
 
 def Reshape(new_shape):
     """Layer construction function for flattening all but the leading dim."""
@@ -178,12 +179,12 @@ if __name__ == '__main__':
     pred_weight = 1000
     n_samples = 1
     step_size = 0.001
-    num_epochs = 50
+    num_epochs = 100
     batch_size = 256
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
-    train_images, train_labels = load_mnist(train=True, reshape=reshape)
-    test_images, test_labels = load_mnist(train=False)
+    train_images, train_labels = load_mnist(train=True, reshape=reshape, fashion=FASHION)
+    test_images, test_labels = load_mnist(train=False, fashion=FASHION)
     train_images = train_images /255
     test_images = test_images /255
     train_labels = train_labels / 9
@@ -271,7 +272,7 @@ if __name__ == '__main__':
     sampled_images = np.random.choice(TEST_SIZE, 20, replace=False)
     
     trained_params = optimizers.unpack_optimizer_state(opt_state)
-    with open('trained_parameters.pkl', 'wb') as f:
+    with open(f'trained_parameters_{LATENT_SIZE}.pkl', 'wb') as f:
         pickle.dump(trained_params, f)
     plt.show()
     

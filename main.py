@@ -20,9 +20,25 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 if __name__ == '__main__':
+    latent_size = int(sys.argv[1])
+    n_iter = 50
     optimize_digit = 3
-    number_to_plot = 1
-    with open('trained_parameters.pkl', 'rb') as f:
+
+    '''
+    Label 	Description
+    0 	T-shirt/top
+    1 	Trouser
+    2 	Pullover
+    3 	Dress
+    4 	Coat
+    5 	Sandal
+    6 	Shirt
+    7 	Sneaker
+    8 	Bag
+    9 	Ankle boot
+    '''
+
+    with open(f'trained_parameters_{latent_size}.pkl', 'rb') as f:
         trained_params = pickle.load(f)
     
     # if wanting to use a fully connected VAE or Convolutional (not yet implemented)
@@ -38,14 +54,14 @@ if __name__ == '__main__':
     params = get_params(best_opt_state)
     encoder_params, decoder_params, _ = params
     _, encode, _, decode = init_vanilla_vae()
-    objective = partial(ambigous_objective_function, 
+    objective = partial(objective_function, 
                         decode=decode,
                         decoder_params=decoder_params,
                         digit=optimize_digit
                 )
     
-    bounds = [{'name': 'x1', 'type': 'continuous', 'domain': (-3.0, 3.0)},
-          {'name': 'x2', 'type': 'continuous', 'domain': (-3.0, 3.0)}]
+    bounds = [{'name': f'x{i}', 'type': 'continuous', 'domain': (-3.0, 3.0)}\
+         for i in range(latent_size)]
     bayes_opt = BayesianOptimization(
                                 f=objective, 
                                 domain=bounds,
@@ -55,14 +71,17 @@ if __name__ == '__main__':
                                 initial_design_numdata = 2,
                                 exact_feval=True,
                                 verbosity=True)
-    bayes_opt.run_optimization(max_iter=50, verbosity=True)
+
+    bayes_opt.run_optimization(max_iter=n_iter, verbosity=True)
     X, y = bayes_opt.get_evaluations()
-    best_points = X[np.argsort(y)[0]]    
-    image = decode(decoder_params, X).reshape(28, 28)
-    plt.imshow(image)
-    bayes_opt.plot_acquisition()
-    
-    
+    best_value = np.argmin(y)
+    image = decode(decoder_params, X[best_value]).reshape(28, 28)
+    plt.imshow(image, cmap='gray')
+    try:
+        bayes_opt.plot_acquisition()
+    except:
+        print('Could not plot due to the number of dimensions.')
+    plt.show()
     # TODO
     # TODO
     # Train the VAE & Regressor - can probably do like 10:ish dimensions for MNIST
