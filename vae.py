@@ -19,7 +19,7 @@ from utils import plot_latent_space
 import argparse
 
 
-LATENT_SIZE = 6
+LATENT_SIZE = 2
 IMAGE_SHAPE = (28, 28)
 FASHION = True
 
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     pred_weight = 1000
     n_samples = 1
     step_size = 0.001
-    num_epochs = 100
+    num_epochs = 50
     batch_size = 256
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
@@ -273,11 +273,14 @@ if __name__ == '__main__':
     
     trained_params = optimizers.unpack_optimizer_state(opt_state)
     if FASHION:
-        with open(f'trained_parameters_{LATENT_SIZE}_fashion.pkl', 'wb') as f:
+        with open(f'models/trained_parameters_{LATENT_SIZE}_fashion.pkl', 'wb') as f:
+            print(f'Saving model - trained_parameters_{LATENT_SIZE}_fashion.pkl...')
             pickle.dump(trained_params, f)
     
     else:
-        with open(f'trained_parameters_{LATENT_SIZE}.pkl', 'wb') as f:
+        with open(f'models/trained_parameters_{LATENT_SIZE}.pkl', 'wb') as f:
+            print(f'Saving model - trained_parameters_{LATENT_SIZE}.pkl...')
+            
             pickle.dump(trained_params, f)
     plt.show()
     
