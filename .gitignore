@@ -5,3 +5,6 @@ __pycache__
 *.ipynb
 *.csv
 *.log
+dataset/3dnet_kit_06_13_17/
+dataset/dexnet_2.tar.gz
+!dataset/dataset_exploration.ipynb
