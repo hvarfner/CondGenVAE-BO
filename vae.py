@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import pickle
+import json
 import matplotlib
 import matplotlib.pyplot as plt
 import jax
@@ -15,13 +16,10 @@ from jax.random import multivariate_normal
 import numpy as np
 import tensorflow_probability as tfp
 from data import load_mnist
-from utils import plot_latent_space
+from utils import plot_latent_space, TEST_SIZE, IMAGE_SHAPE
 import argparse
 
 
-LATENT_SIZE = 2
-IMAGE_SHAPE = (28, 28)
-FASHION = True
 
 def Reshape(new_shape):
     """Layer construction function for flattening all but the leading dim."""
@@ -110,7 +108,7 @@ def image_sample(rng, params, nrow, ncol):
     _, decoder_params, _ = params
     code_rng, image_rng = random.split(rng)
     # samples from the standard normal in latent space with shape (nrow * ncol, 10)
-    latent_sample = random.normal(code_rng, (nrow * ncol, LATENT_SIZE))
+    latent_sample = random.normal(code_rng, (nrow * ncol, latent_size))
     logits = decode(decoder_params, latent_sample)
     sampled_images = random.bernoulli(image_rng, jnp.logaddexp(0., logits))
     sampled_images = jnp.logaddexp(0., logits)
@@ -125,13 +123,13 @@ def image_grid(nrow, ncol, image_vectors, image_shape):
 
 
 # define the VAE - one of FanOuts is softplus due to non-negative variance
-def init_vanilla_vae():
+def init_vanilla_vae(latent_size):
     encoder_init, encode = stax.serial(
         Dense(512), Relu,
         Dense(512), Relu,
         Dense(256), Relu,
         FanOut(2),
-        stax.parallel(Dense(LATENT_SIZE), stax.serial(Dense(LATENT_SIZE), Softplus)),
+        stax.parallel(Dense(latent_size), stax.serial(Dense(latent_size), Softplus)),
     )   
 
     decoder_init, decode = stax.serial(
@@ -143,13 +141,23 @@ def init_vanilla_vae():
     return encoder_init, encode, decoder_init, decode
 
 
-
 def mnist_regressor():
     predictor_init, predict = stax.serial(Dense(128), Relu, 
                                           Dense(128), Relu, 
                                           Dense(1)
                                           )
     return predictor_init, predict
+
+
+def mnist_classifier():
+    predictor_init, predict = stax.serial(Dense(128), Relu, 
+                                          Dense(128), Relu, 
+                                          Dense(num_classes),
+                                          LogSoftmax
+                                          )
+
+    return predictor_init, predict
+
 
 def predict_image(rng, params, images):
     encoder_params, _, predictor_params = params
@@ -165,26 +173,29 @@ def quantity_of_interest():
     return 0
 
 if __name__ == '__main__':
-    # if wanting to use a fully connected VAE or Convolutional (not yet implemented)
-    if len(sys.argv) == 1:
-        vae_type = 'vanilla'
-    else:
-        vae_type = sys.argv[1]
-    reshape = vae_type == 'vanilla'
-
+    reshape = True
     binarize = False
-    TEST_SIZE = 7500
-    beta_init = 0.01
-    beta_final = 1
-    pred_weight = 1000
-    n_samples = 1
-    step_size = 0.001
-    num_epochs = 50
-    batch_size = 256
+    with open('config.json', 'r') as f:
+        full_config = json.load(f)
+    config = full_config['vae_args']
+        
+    beta_init = config['beta_init']
+    beta_final = config['beta_final']
+    pred_weight = config['pred_weight']
+    n_samples = config['n_samples']
+    step_size = config['step_size']
+    num_epochs = config['num_epochs']
+    batch_size = config['batch_size']
+    fashion = config['fashion']
+    vae_type = config['vae_type']
+    latent_size = config['latent_size']
+    mlp_type = config['mlp_type']
+    
+
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
-    train_images, train_labels = load_mnist(train=True, reshape=reshape, fashion=FASHION)
-    test_images, test_labels = load_mnist(train=False, fashion=FASHION)
+    train_images, train_labels = load_mnist(train=True, reshape=reshape, fashion=fashion)
+    test_images, test_labels = load_mnist(train=False, fashion=fashion)
     train_images = train_images /255
     test_images = test_images /255
     train_labels = train_labels / 9
@@ -206,8 +217,8 @@ if __name__ == '__main__':
     encoder_init, encode, decoder_init, decode = define_vae()
     predictor_init, predict = mnist_regressor()
     _, encoder_init_params = encoder_init(encoder_init_rng, input_shape)
-    _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, LATENT_SIZE))
-    _, predictor_init_params = predictor_init(predictor_init_rng, (batch_size, LATENT_SIZE))
+    _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, latent_size))
+    _, predictor_init_params = predictor_init(predictor_init_rng, (batch_size, latent_size))
     init_params = (encoder_init_params, decoder_init_params, predictor_init_params)
 
     opt_init, opt_update, get_params = optimizers.momentum(step_size, mass=0.9)
@@ -272,14 +283,14 @@ if __name__ == '__main__':
     sampled_images = np.random.choice(TEST_SIZE, 20, replace=False)
     
     trained_params = optimizers.unpack_optimizer_state(opt_state)
-    if FASHION:
-        with open(f'models/trained_parameters_{LATENT_SIZE}_fashion.pkl', 'wb') as f:
-            print(f'Saving model - trained_parameters_{LATENT_SIZE}_fashion.pkl...')
+    if fashion:
+        with open(f'models/trained_parameters_{latent_size}_fashion.pkl', 'wb') as f:
+            print(f'Saving model - trained_parameters_{latent_size}_fashion.pkl...')
             pickle.dump(trained_params, f)
     
     else:
-        with open(f'models/trained_parameters_{LATENT_SIZE}.pkl', 'wb') as f:
-            print(f'Saving model - trained_parameters_{LATENT_SIZE}.pkl...')
+        with open(f'models/trained_parameters_{latent_size}.pkl', 'wb') as f:
+            print(f'Saving model - trained_parameters_{latent_size}.pkl...')
             
             pickle.dump(trained_params, f)
     plt.show()
