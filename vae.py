@@ -237,9 +237,12 @@ if __name__ == '__main__':
     def run_epoch(rng, opt_state, images, labels, beta=1, binarize=False):
         def body_fun(i, opt_state):
             elbo_rng, data_rng = random.split(random.fold_in(rng, i))
-            batch, batch_labels = split_and_binarize_batch(data_rng, i, images, labels, binarize=binarize)
-            loss = lambda params: elbo_and_pred_loss(\
-                elbo_rng, params, batch, batch_labels, beta, pred_weight, n_samples=n_samples) / batch_size
+            batch, batch_labels = split_and_binarize_batch(
+                data_rng, i, images, labels, binarize=binarize)
+
+            def loss(params):
+                return elbo_and_pred_loss(
+                    elbo_rng, params, batch, batch_labels, beta, pred_weight, n_samples=n_samples) / batch_size
             grads = grad(loss)(get_params(opt_state))
             return opt_update(i, grads, opt_state)
         return lax.fori_loop(0, num_batches, body_fun, opt_state)
