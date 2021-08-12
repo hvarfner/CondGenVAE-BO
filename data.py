@@ -82,7 +82,7 @@ def get_class_indices(object_labels, num):
     return np.where(object_labels == num)
 
 
-def load_dexnet(num_per_class=-1):
+def load_dexnet(train=True, num_samples=-1):
     IMAGE_SHAPE = 32
     cwd = os.getcwd()
     dataset_f = os.path.join(cwd, "dataset/")
@@ -102,15 +102,20 @@ def load_dexnet(num_per_class=-1):
     for i in classes_for_learning:
         if len(get_class_indices(data[1], i)[0]) < min_samples:
             min_samples = len(get_class_indices(data[1], i)[0])
-    if num_per_class == -1:
-        num_per_class = min_samples
-    elif num_per_class > min_samples:
+    if num_samples == -1:
+        num_per_class = min_samples * classes_for_learning.shape[0]
+    elif num_samples > min_samples * classes_for_learning.shape[0]:
         raise ValueError("Requested more samples per class then the smallest class has samples")
+    else:
+        num_per_class = int(num_samples / classes_for_learning.shape[0])
     img_array = np.empty(
         shape=(num_per_class * classes_for_learning.shape[0], data[0][0].shape[0]**2), dtype=object)
     metric_array = np.empty(num_per_class * classes_for_learning.shape[0])
     # Randomly sample from the chosen classes
-    rng = np.random.default_rng(12345)
+    if train:
+        rng = np.random.default_rng(12345)
+    else:
+        rng = np.random.default_rng(54321)
     for i in range(classes_for_learning.shape[0]):
         class_idxs = get_class_indices(data[1], classes_for_learning[i])
         for j in range(num_per_class):

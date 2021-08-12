@@ -1,22 +1,19 @@
 {
-    "vae_args":
-    {
+    "vae_args": {
         "latent_size": 2,
         "batch_size": 256,
-        "step_size": 1e-3, 
-        "num_epochs": 50, 
+        "step_size": 1e-3,
+        "num_epochs": 50,
         "beta_init": 0.01,
-        "beta_final": 1, 
-        "pred_weight": 1000, 
-        "n_samples": 1,
-        "vae_type": "vanilla", 
-        "fashion": true,
+        "beta_final": 1,
+        "pred_weight": 1000,
+        "n_samples": 400,
+        "vae_type": "vanilla",
+        "fashion": false,
         "mlp_type": "regression"
     },
-    "opt_args":
-    {
+    "opt_args": {
         "latent_size": 2,
         "num_iterations": 50
-        
     }
 }

@@ -15,7 +15,7 @@ from jax.experimental.stax import Dense, FanOut, Relu, Softplus,\
 from jax.random import multivariate_normal
 import numpy as np
 import tensorflow_probability as tfp
-from data import load_mnist
+from data import load_mnist, load_dexnet
 from utils import plot_latent_space, TEST_SIZE, IMAGE_SHAPE
 import argparse
 
@@ -194,12 +194,18 @@ if __name__ == '__main__':
 
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
-    train_images, train_labels = load_mnist(train=True, reshape=reshape, fashion=fashion)
-    test_images, test_labels = load_mnist(train=False, fashion=fashion)
-    train_images = train_images / 255
-    test_images = test_images / 255
-    train_labels = train_labels / 9
-    test_labels = test_labels / 9
+    if fashion:
+        train_images, train_labels = load_mnist(train=True, reshape=reshape, fashion=fashion)
+        test_images, test_labels = load_mnist(train=False, fashion=fashion)
+        train_images = train_images / 255
+        test_images = test_images / 255
+        train_labels = train_labels / 9
+        test_labels = test_labels / 9
+    else:
+        train_images, train_labels = load_dexnet(
+            train=True, num_samples=int(n_samples * 0.8))
+        test_images, test_labels = load_dexnet(
+            train=False, num_samples=int(n_samples * 0.2))
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
 
