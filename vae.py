@@ -213,7 +213,7 @@ if __name__ == '__main__':
         define_vae = init_conv_vae
         input_shape = (batch_size, ) + IMAGE_SHAPE + (1, )
 
-    encoder_init, encode, decoder_init, decode = define_vae()
+    encoder_init, encode, decoder_init, decode = define_vae(latent_size)
     predictor_init, predict = mnist_regressor()
     _, encoder_init_params = encoder_init(encoder_init_rng, input_shape)
     _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, latent_size))
