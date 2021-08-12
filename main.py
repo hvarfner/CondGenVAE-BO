@@ -21,8 +21,13 @@ import matplotlib
 matplotlib.use('TkAgg')
 
 if __name__ == '__main__':
-    latent_size = int(sys.argv[1])
-    n_iter = 50
+
+    with open('config.json', 'r') as f:
+        full_config = json.load(f)
+    config = full_config['opt_args']
+
+    latent_size = config['latent_size']
+    n_iter = config['num_iterations']
     optimize_digit = 3
     fashion = True
     brightness = 0
@@ -48,19 +53,11 @@ if __name__ == '__main__':
             trained_params = pickle.load(f)
     
 
-    # if wanting to use a fully connected VAE or Convolutional (not yet implemented)
-    if len(sys.argv) == 1:
-        vae_type = 'vanilla'
-    else:
-        vae_type = sys.argv[1]
-    reshape = vae_type == 'vanilla'
-    step_size = 0.001
-
     best_opt_state = optimizers.pack_optimizer_state(trained_params)
     opt_init, opt_update, get_params = optimizers.momentum(0, mass=0)
     params = get_params(best_opt_state)
     encoder_params, decoder_params, _ = params
-    _, encode, _, decode = init_vanilla_vae()
+    _, encode, _, decode = init_vanilla_vae(latent_size)
     objective = partial(brightest_item_objective_function, 
                         decode=decode,
                         decoder_params=decoder_params,

@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+# Constants
+
+TEST_SIZE = 7500
+IMAGE_SHAPE = (28, 28)
+
 def plot_latent_space(all_samples, values):
     colors = ['b', 'g', 'r', 'c', 'y', 'k', 'm', 'purple', 'orange', 'darkgrey']
 
