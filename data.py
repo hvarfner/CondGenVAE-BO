@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import jax.numpy as jnp
 from torch.utils import data
@@ -42,6 +43,19 @@ def load_mnist(train=True, reshape=True, fashion=False):
             mnist_dataset.test_data.numpy(), axis=3), dtype=jnp.float32)
     labels_mnist = jnp.array(mnist_dataset.test_labels, dtype=jnp.float32)
     return images_mnist, labels_mnist
+
+
+def load_dexnet(train=True, reshape=True):
+    cwd = os.getcwd()
+    dataset_f = os.path.join(cwd, "dataset/")
+    data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
+    if not os.path.exists(data_f):
+        print("Dataset does not exist. Downloading it. This will take a while.")
+        os.chdir(dataset_f)
+        os.system('wget - v - L - O dexnet_2.tar.gz "https://app.box.com/index.php?rm=box_download_shared_file&shared_name=6mnb2bzi5zfa7qpwyn7uq5atb7vbztng&file_id=f_226328650746"')
+        os.system("tar - xzf dexnet_2.tar.gz")
+        os.system("rm dexnet_2.tar.gz")
+        os.chdir(cwd)
 
 
 class NumpyLoader(data.DataLoader):
