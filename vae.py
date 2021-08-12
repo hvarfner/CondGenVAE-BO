@@ -196,6 +196,8 @@ if __name__ == '__main__':
     num_batches = num_complete_batches + bool(leftover)
 
     imfile = os.path.join(os.path.join(os.getcwd(), "tmp/"), "mnist_vae_{:03d}.png")
+    if not os.path.exists(os.path.join(os.getcwd(), "tmp/")):
+        os.makedirs(os.path.join(os.getcwd(), "tmp/"))
     encoder_init_rng, decoder_init_rng, predictor_init_rng = random.split(random.PRNGKey(2), 3)
 
     if vae_type == 'vanilla':
