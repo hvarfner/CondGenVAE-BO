@@ -45,7 +45,38 @@ def load_mnist(train=True, reshape=True, fashion=False):
     return images_mnist, labels_mnist
 
 
-def load_dexnet(train=True, reshape=True):
+def load_dexnet_file(data_f, name, nr=0):
+    nr_str = f'{nr:05d}'
+    return np.load(data_f + "/" + name + nr_str + '.npz')['arr_0']
+
+
+def get_num_classes(object_labels):
+    return int(object_labels[-1])
+
+
+def fetch_dexnet_files(data_f, num_classes):
+    depth_im_t_f = load_dexnet_file(data_f, 'depth_ims_tf_table_')
+    object_labels = load_dexnet_file(data_f, 'object_labels_')
+    metric = load_dexnet_file(data_f, 'robust_ferrari_canny_')
+    class_nr = 0
+    file_nr = 1
+    while class_nr <= num_classes:
+        depth_im_t_f = np.append(depth_im_t_f, load_dexnet_file(
+            data_f, 'depth_ims_tf_table_', file_nr), axis=0)
+        object_labels = np.append(object_labels, load_dexnet_file(
+            data_f, 'object_labels_', file_nr), axis=0)
+        metric = np.append(metric, load_dexnet_file(
+            data_f, 'robust_ferrari_canny_', file_nr), axis=0)
+        class_nr = get_num_classes(object_labels)
+        file_nr = file_nr + 1
+    return (depth_im_t_f, object_labels, metric)
+
+
+def get_class_indices(object_labels, num):
+    return np.where(object_labels == num)
+
+
+def load_dexnet(num_per_class=-1):
     cwd = os.getcwd()
     dataset_f = os.path.join(cwd, "dataset/")
     data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
@@ -56,6 +87,32 @@ def load_dexnet(train=True, reshape=True):
         os.system("tar - xzf dexnet_2.tar.gz")
         os.system("rm dexnet_2.tar.gz")
         os.chdir(cwd)
+    # Load hand-picked classes
+    classes_for_learning = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
+    data = fetch_dexnet_files(data_f, classes_for_learning[-1])
+    # Find class with least amount of samples and possibly limit
+    min_samples = 10000000
+    for i in classes_for_learning:
+        if len(get_class_indices(data[1], i)[0]) < min_samples:
+            min_samples = len(get_class_indices(data[1], i)[0])
+    if num_per_class == -1:
+        num_per_class = min_samples
+    elif num_per_class > min_samples:
+        raise ValueError("Requested more samples per class then the smallest class has samples")
+    img_array = np.empty(
+        shape=(num_per_class * classes_for_learning.shape[0], data[0][0].shape[0]**2), dtype=object)
+    metric_array = np.empty(num_per_class * classes_for_learning.shape[0])
+    # Randomly sample from the chosen classes
+    rng = np.random.default_rng(12345)
+    for i in range(classes_for_learning.shape[0]):
+        class_idxs = get_class_indices(data[1], classes_for_learning[i])
+        for j in range(num_per_class):
+            idx = int(rng.random() * len(class_idxs[0]) + class_idxs[0][0])
+            img_array[i * num_per_class + j] = jnp.asarray(data[0][idx].flatten())
+            metric_array[i * num_per_class + j] = data[2][idx]
+    jax_img_array = jnp.asarray(img_array, dtype=jnp.float32)
+    jax_metric_array = jnp.asarray(metric_array, dtype=jnp.float32)
+    return jax_img_array, jax_metric_array
 
 
 class NumpyLoader(data.DataLoader):
