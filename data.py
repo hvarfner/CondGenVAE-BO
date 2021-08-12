@@ -15,6 +15,9 @@ def numpy_collate(batch):
         return np.array(batch)
 
 
+IMAGE_SHAPE = 0
+TEST_SIZE = 0
+
 '''
 Label 	Description
 0 	T-shirt/top
@@ -31,6 +34,7 @@ Label 	Description
 
 
 def load_mnist(train=True, reshape=True, fashion=False):
+    IMAGE_SHAPE = 28
     if fashion:
         mnist_dataset = FashionMNIST('/tmp/fashion_mnist/', download=True, train=train)
     else:
@@ -42,6 +46,8 @@ def load_mnist(train=True, reshape=True, fashion=False):
         images_mnist = jnp.array(np.expand_dims(
             mnist_dataset.test_data.numpy(), axis=3), dtype=jnp.float32)
     labels_mnist = jnp.array(mnist_dataset.test_labels, dtype=jnp.float32)
+    if not train:
+        TEST_SIZE = labels_mnist.shape[0]
     return images_mnist, labels_mnist
 
 
@@ -77,6 +83,7 @@ def get_class_indices(object_labels, num):
 
 
 def load_dexnet(num_per_class=-1):
+    IMAGE_SHAPE = 32
     cwd = os.getcwd()
     dataset_f = os.path.join(cwd, "dataset/")
     data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
