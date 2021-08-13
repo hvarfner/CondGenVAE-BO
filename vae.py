@@ -191,6 +191,7 @@ if __name__ == '__main__':
     vae_type = config['vae_type']
     latent_size = config['latent_size']
     mlp_type = config['mlp_type']
+    dataset_size = config['dataset_size']
 
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
@@ -203,9 +204,9 @@ if __name__ == '__main__':
         test_labels = test_labels / 9
     else:
         train_images, train_labels = load_dexnet(
-            train=True, num_samples=int(n_samples * 0.8))
+            train=True, num_samples=int(dataset_size * 0.8))
         test_images, test_labels = load_dexnet(
-            train=False, num_samples=int(n_samples * 0.2))
+            train=False, num_samples=int(dataset_size * 0.2))
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
 
