@@ -16,7 +16,7 @@ from jax.random import multivariate_normal
 import numpy as np
 import tensorflow_probability as tfp
 from data import load_mnist, load_dexnet
-from utils import plot_latent_space, TEST_SIZE, IMAGE_SHAPE
+from utils import plot_latent_space
 import argparse
 
 
@@ -207,6 +207,7 @@ if __name__ == '__main__':
             train=True, num_samples=int(dataset_size * 0.8))
         test_images, test_labels = load_dexnet(
             train=False, num_samples=int(dataset_size * 0.2))
+    from data import TEST_SIZE, IMAGE_SHAPE
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
 
