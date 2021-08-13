@@ -34,7 +34,6 @@ Label 	Description
 
 
 def load_mnist(train=True, reshape=True, fashion=False):
-    IMAGE_SHAPE = 28
     if fashion:
         mnist_dataset = FashionMNIST('/tmp/fashion_mnist/', download=True, train=train)
     else:
@@ -83,7 +82,6 @@ def get_class_indices(object_labels, num):
 
 
 def load_dexnet(train=True, num_samples=-1):
-    IMAGE_SHAPE = 32
     cwd = os.getcwd()
     dataset_f = os.path.join(cwd, "dataset/")
     data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")

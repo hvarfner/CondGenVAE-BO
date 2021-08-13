@@ -7,9 +7,9 @@
         "beta_init": 0.01,
         "beta_final": 1,
         "pred_weight": 1000,
-        "n_samples": 400,
+        "n_samples": 500,
         "vae_type": "vanilla",
-        "fashion": false,
+        "fashion": true,
         "mlp_type": "regression"
     },
     "opt_args": {

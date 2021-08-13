@@ -17,7 +17,6 @@ import numpy as np
 import tensorflow_probability as tfp
 from data import load_mnist, load_dexnet
 from utils import plot_latent_space, TEST_SIZE, IMAGE_SHAPE
-import argparse
 
 
 def Reshape(new_shape):
@@ -201,11 +200,18 @@ if __name__ == '__main__':
         test_images = test_images / 255
         train_labels = train_labels / 9
         test_labels = test_labels / 9
+        print(f'Loaded MNIST dataset of shape {train_images.shape}')
+        print(f'Sample shape: {train_images[0].shape}')
+        print(train_labels.shape, train_labels)
     else:
+        print('Loading DexNet...')
         train_images, train_labels = load_dexnet(
             train=True, num_samples=int(n_samples * 0.8))
         test_images, test_labels = load_dexnet(
             train=False, num_samples=int(n_samples * 0.2))
+        print(f'Loaded DexNet dataset of shape {train_images.shape}')
+        print(train_images[0].shape)
+        print(train_labels.shape, train_labels)
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
 
@@ -231,7 +237,9 @@ if __name__ == '__main__':
     train_labels = jax.device_put(train_labels.reshape(-1, 1))
     test_images = jax.device_put(test_images[0:TEST_SIZE])
     test_labels = jax.device_put(test_labels[0:TEST_SIZE].reshape(-1, 1))
-
+    print(
+        'Train and test are put on device.'
+    )
     def split_and_binarize_batch(rng, i, images, labels, binarize):
         i = i % num_batches
         batch = lax.dynamic_slice_in_dim(images, i * batch_size, batch_size)
@@ -269,6 +277,7 @@ if __name__ == '__main__':
 
     opt_state = opt_init(init_params)
     beta_schedule = np.linspace(beta_init, beta_final, num_epochs)
+    print('Starting training!')
     for epoch in range(num_epochs):
         tic = time.time()
         opt_state = run_epoch(random.PRNGKey(epoch), opt_state, train_images,
