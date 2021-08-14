@@ -201,6 +201,10 @@ if __name__ == '__main__':
     dataset = config['dataset']
     dataset_size = config['dataset_size']
 
+    from jax.config import config
+    config.update('jax_disable_jit', True)
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"
+
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
     if dataset == "fashion":

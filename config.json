@@ -10,7 +10,7 @@
         "n_samples": 1,
         "vae_type": "vanilla",
         "mlp_type": "regression",
-        "dataset": "dexnet",
+        "dataset": "fashion",
         "dataset_size": 400
     },
     "opt_args": {
