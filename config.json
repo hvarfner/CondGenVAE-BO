@@ -1,7 +1,7 @@
 {
     "vae_args": {
         "latent_size": 2,
-        "batch_size": 256,
+        "batch_size": 64,
         "step_size": 1e-3,
         "num_epochs": 50,
         "beta_init": 0.01,
