@@ -236,7 +236,7 @@ if __name__ == '__main__':
         input_shape = (batch_size, ) + IMAGE_SHAPE + (1, )
 
     encoder_init, encode, decoder_init, decode = define_vae(latent_size)
-    if dataset == "fasion" or dataset == "mnist":
+    if dataset == "fashion" or dataset == "mnist":
         regressor = mnist_regressor
     elif dataset == "dexnet":
         regressor = dexnet_regressor
