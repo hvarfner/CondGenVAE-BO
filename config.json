@@ -9,8 +9,8 @@
         "pred_weight": 1000,
         "n_samples": 1,
         "vae_type": "vanilla",
-        "fashion": false,
         "mlp_type": "regression",
+        "dataset": "dexnet",
         "dataset_size": 400
     },
     "opt_args": {

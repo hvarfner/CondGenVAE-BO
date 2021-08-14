@@ -149,6 +149,14 @@ def mnist_regressor():
     return predictor_init, predict
 
 
+def dexnet_regressor():
+    predictor_init, predict = stax.serial(Dense(128), Relu,
+                                          Dense(128), Relu,
+                                          Dense(1)
+                                          )
+    return predictor_init, predict
+
+
 def mnist_classifier():
     predictor_init, predict = stax.serial(Dense(128), Relu,
                                           Dense(128), Relu,
@@ -187,31 +195,37 @@ if __name__ == '__main__':
     step_size = config['step_size']
     num_epochs = config['num_epochs']
     batch_size = config['batch_size']
-    fashion = config['fashion']
     vae_type = config['vae_type']
     latent_size = config['latent_size']
     mlp_type = config['mlp_type']
+    dataset = config['dataset']
     dataset_size = config['dataset_size']
 
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
-    if fashion:
+    if dataset == "fashion":
+        fashion = True
+    else:
+        fashion = False
+    if dataset == "fashion" or dataset == "mnist":
         train_images, train_labels = load_mnist(train=True, reshape=reshape, fashion=fashion)
         test_images, test_labels = load_mnist(train=False, fashion=fashion)
         train_images = train_images / 255
         test_images = test_images / 255
         train_labels = train_labels / 9
         test_labels = test_labels / 9
-    else:
+    elif dataset == "dexnet":
         train_images, train_labels = load_dexnet(
             train=True, num_samples=int(dataset_size * 0.8))
         test_images, test_labels = load_dexnet(
             train=False, num_samples=int(dataset_size * 0.2))
+    else:
+        raise ValueError("Unknown dataset.")
     from data import TEST_SIZE, IMAGE_SHAPE
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
 
-    imfile = os.path.join(os.path.join(os.getcwd(), "tmp/"), "mnist_vae_{:03d}.png")
+    imfile = os.path.join(os.path.join(os.getcwd(), "tmp/"), dataset + "_vae_{:03d}.png")
     encoder_init_rng, decoder_init_rng, predictor_init_rng = random.split(random.PRNGKey(2), 3)
 
     if vae_type == 'vanilla':
@@ -222,7 +236,13 @@ if __name__ == '__main__':
         input_shape = (batch_size, ) + IMAGE_SHAPE + (1, )
 
     encoder_init, encode, decoder_init, decode = define_vae(latent_size)
-    predictor_init, predict = mnist_regressor()
+    if dataset == "fasion" or dataset == "mnist":
+        regressor = mnist_regressor
+    elif dataset == "dexnet":
+        regressor = dexnet_regressor
+    else:
+        raise ValueError("Regressor for dataset has not been defined")
+    predictor_init, predict = regressor()
     _, encoder_init_params = encoder_init(encoder_init_rng, input_shape)
     _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, latent_size))
     _, predictor_init_params = predictor_init(predictor_init_rng, (batch_size, latent_size))
@@ -293,16 +313,9 @@ if __name__ == '__main__':
     sampled_images = np.random.choice(TEST_SIZE, 20, replace=False)
 
     trained_params = optimizers.unpack_optimizer_state(opt_state)
-    if fashion:
-        with open(f'models/trained_parameters_{latent_size}_fashion.pkl', 'wb') as f:
-            print(f'Saving model - trained_parameters_{latent_size}_fashion.pkl...')
-            pickle.dump(trained_params, f)
-
-    else:
-        with open(f'models/trained_parameters_{latent_size}.pkl', 'wb') as f:
-            print(f'Saving model - trained_parameters_{latent_size}.pkl...')
-
-            pickle.dump(trained_params, f)
+    with open(f'models/trained_parameters_{latent_size}_{dataset}.pkl', 'wb') as f:
+        print(f'Saving model - trained_parameters_{latent_size}_{dataset}.pkl...')
+        pickle.dump(trained_params, f)
     plt.show()
 
 # TODO CHECK IN ENCODE WHAT SHAPE STUFF IS!
