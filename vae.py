@@ -216,11 +216,13 @@ if __name__ == '__main__':
         test_labels = test_labels / 9
 
     elif dataset == "dexnet":
+        print('Loading DexNet...')
         classes = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
         train_images, train_labels = load_dexnet(
             train=True, num_samples=int(dataset_size * 0.8), given_classes=classes)
         test_images, test_labels = load_dexnet(
             train=False, num_samples=int(dataset_size * 0.2), given_classes=classes)
+        print(f'Loaded DexNet with shape of {train_images.shape}.')
     else:
         raise ValueError("Unknown dataset.")
     from data import TEST_SIZE, IMAGE_SHAPE
@@ -255,9 +257,7 @@ if __name__ == '__main__':
     train_labels = jax.device_put(train_labels.reshape(-1, 1))
     test_images = jax.device_put(test_images[0:TEST_SIZE])
     test_labels = jax.device_put(test_labels[0:TEST_SIZE].reshape(-1, 1))
-    print(
-        'Train and test are put on device.'
-    )
+    print('Train and test are put on device.')
     def split_and_binarize_batch(rng, i, images, labels, binarize):
         i = i % num_batches
         batch = lax.dynamic_slice_in_dim(images, i * batch_size, batch_size)

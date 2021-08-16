@@ -96,10 +96,10 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
         os.system("tar - xzf dexnet_2.tar.gz")
         os.system("rm dexnet_2.tar.gz")
         os.chdir(cwd)
-    if given_classes:
+
+    if given_classes is not None:
         num_classes = given_classes[-1]
-    data = fetch_dexnet_files(data_f, num_classes)
-    if given_classes:
+        data = fetch_dexnet_files(data_f, num_classes)
         num_classes = given_classes.shape[0]
         # Find class with least amount of samples and possibly limit
         min_samples = 10000000
