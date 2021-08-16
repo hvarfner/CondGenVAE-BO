@@ -34,11 +34,8 @@ Label 	Description
 
 
 def load_mnist(train=True, reshape=True, fashion=False):
-<<<<<<< HEAD
-=======
     global IMAGE_SHAPE, TEST_SIZE
     IMAGE_SHAPE = (28, 28)
->>>>>>> 3f9f247e4a13f8fb005d6068d5db174f07852324
     if fashion:
         mnist_dataset = FashionMNIST('/tmp/fashion_mnist/', download=True, train=train)
     else:

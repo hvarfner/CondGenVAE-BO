@@ -16,12 +16,8 @@ from jax.random import multivariate_normal
 import numpy as np
 import tensorflow_probability as tfp
 from data import load_mnist, load_dexnet
-<<<<<<< HEAD
-from utils import plot_latent_space, TEST_SIZE, IMAGE_SHAPE
-=======
 from utils import plot_latent_space
 import argparse
->>>>>>> 3f9f247e4a13f8fb005d6068d5db174f07852324
 
 
 def Reshape(new_shape):
@@ -218,7 +214,7 @@ if __name__ == '__main__':
         test_images = test_images / 255
         train_labels = train_labels / 9
         test_labels = test_labels / 9
-        
+
     elif dataset == "dexnet":
         classes = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
         train_images, train_labels = load_dexnet(
