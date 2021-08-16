@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from jax import vmap
 import jax.numpy as jnp
 from torch.utils import data
 from torchvision.datasets import MNIST, FashionMNIST
@@ -85,8 +86,8 @@ def get_class_indices(object_labels, num):
 
 def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
     global IMAGE_SHAPE, TEST_SIZE
-    IMAGE_SHAPE = (32, 32)
-    cwd = os.getcwd()
+    IMAGE_SHAPE = (28, 28)
+    cwd = os.path.dirname(__file__)
     dataset_f = os.path.join(cwd, "dataset/")
     data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
     if not os.path.exists(data_f):
@@ -96,7 +97,6 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
         os.system("tar - xzf dexnet_2.tar.gz")
         os.system("rm dexnet_2.tar.gz")
         os.chdir(cwd)
-
     if given_classes is not None:
         num_classes = given_classes[-1]
         data = fetch_dexnet_files(data_f, num_classes)
@@ -109,6 +109,7 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
         if num_samples == -1:
             num_per_class = min_samples * given_classes.shape[0]
         elif num_samples > min_samples * given_classes.shape[0]:
+            print(min_samples, num_samples, given_classes)
             raise ValueError(
                 "Requested more samples per class then the smallest class has samples:", min_samples)
         else:
@@ -117,6 +118,7 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
         given_classes = np.arange(0, num_classes)
         num_per_class = int(num_samples / num_classes)
     metric_array = np.empty(num_per_class * num_classes)
+    print(num_per_class)
     img_array = np.empty(
         shape=(num_per_class * given_classes.shape[0], data[0][0].shape[0]**2), dtype=object)
     # Randomly sample from the chosen classes
@@ -132,10 +134,22 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
             idx = int(rng.random() * len(class_idxs[0]) + class_idxs[0][0])
             img_array[i * num_per_class + j] = jnp.asarray(data[0][idx].flatten())
             metric_array[i * num_per_class + j] = i
+    img_array_min, img_array_max = img_array.min(), img_array.max()
+    img_array = (img_array - img_array_min) / (img_array_max - img_array_min)
+    metric_array = metric_array / 9
     jax_img_array = jnp.asarray(img_array, dtype=jnp.float32)
+    
+    def per_example_minmax(arr):
+        arrmin, arrmax = np.min(arr), np.max(arr)
+
+        new_arr = np.round(((arr - arrmin) / (arrmax - arrmin)) * 255)
+        new_arr = new_arr.reshape(32, 32)[2:30, 2:30].reshape(-1) / 255
+        return 1 - new_arr
+
+    norm_array = vmap(per_example_minmax, 0)(jax_img_array)    
     jax_metric_array = jnp.asarray(metric_array, dtype=jnp.float32)
     
-    return jax_img_array, jax_metric_array
+    return norm_array, jax_metric_array
 
 
 class NumpyLoader(data.DataLoader):

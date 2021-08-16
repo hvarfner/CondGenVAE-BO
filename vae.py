@@ -140,6 +140,24 @@ def init_vanilla_vae(latent_size):
     )
     return encoder_init, encode, decoder_init, decode
 
+# define the VAE - one of FanOuts is softplus due to non-negative variance
+def init_dexnet_vae(latent_size):
+    encoder_init, encode = stax.serial(
+        Dense(128), Relu,
+        Dense(128), Relu,
+        Dense(64), Relu,
+        FanOut(2),
+        stax.parallel(Dense(latent_size), stax.serial(Dense(latent_size), Softplus)),
+    )
+
+    decoder_init, decode = stax.serial(
+        Dense(64), Relu,
+        Dense(128), Relu,
+        Dense(128), Relu,
+        Dense(np.prod(IMAGE_SHAPE))
+    )
+    return encoder_init, encode, decoder_init, decode
+
 
 def mnist_regressor():
     predictor_init, predict = stax.serial(Dense(128), Relu,
@@ -214,10 +232,13 @@ if __name__ == '__main__':
         test_images = test_images / 255
         train_labels = train_labels / 9
         test_labels = test_labels / 9
+        print(f'Loaded {dataset} with shape of {train_images.shape}.')
+
 
     elif dataset == "dexnet":
         print('Loading DexNet...')
         classes = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
+        #classes = np.arange(100)
         train_images, train_labels = load_dexnet(
             train=True, num_samples=int(dataset_size * 0.8), given_classes=classes)
         test_images, test_labels = load_dexnet(
@@ -225,7 +246,9 @@ if __name__ == '__main__':
         print(f'Loaded DexNet with shape of {train_images.shape}.')
     else:
         raise ValueError("Unknown dataset.")
+
     from data import TEST_SIZE, IMAGE_SHAPE
+
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
 
@@ -233,7 +256,12 @@ if __name__ == '__main__':
     encoder_init_rng, decoder_init_rng, predictor_init_rng = random.split(random.PRNGKey(2), 3)
 
     if vae_type == 'vanilla':
-        define_vae = init_vanilla_vae
+        if dataset == 'dexnet':
+            define_vae = init_vanilla_vae
+            print('Using the smaller VAE.')
+        else: 
+            define_vae = init_vanilla_vae
+            print('Using the larger VAE.')
         input_shape = (batch_size, np.prod(IMAGE_SHAPE))
     else:
         define_vae = init_conv_vae
@@ -258,6 +286,7 @@ if __name__ == '__main__':
     test_images = jax.device_put(test_images[0:TEST_SIZE])
     test_labels = jax.device_put(test_labels[0:TEST_SIZE].reshape(-1, 1))
     print('Train and test are put on device.')
+
     def split_and_binarize_batch(rng, i, images, labels, binarize):
         i = i % num_batches
         batch = lax.dynamic_slice_in_dim(images, i * batch_size, batch_size)
@@ -295,6 +324,12 @@ if __name__ == '__main__':
 
     opt_state = opt_init(init_params)
     beta_schedule = np.linspace(beta_init, beta_final, num_epochs)
+    #print(train_images[0], train_images[10])
+    print(train_images[0].mean(), train_images[10].mean())
+    print(train_images[0].min(), train_images[10].min())
+    print(train_images[0].max(), train_images[10].max())
+    
+    print(train_labels[0], train_labels[10])
     print('Starting training!')
     for epoch in range(num_epochs):
         tic = time.time()
