@@ -167,14 +167,6 @@ def mnist_regressor():
     return predictor_init, predict
 
 
-def dexnet_regressor():
-    predictor_init, predict = stax.serial(Dense(128), Relu,
-                                          Dense(128), Relu,
-                                          Dense(1)
-                                          )
-    return predictor_init, predict
-
-
 def mnist_classifier():
     predictor_init, predict = stax.serial(Dense(128), Relu,
                                           Dense(128), Relu,
@@ -225,6 +217,7 @@ if __name__ == '__main__':
         fashion = True
     else:
         fashion = False
+
     if dataset == "fashion" or dataset == "mnist":
         train_images, train_labels = load_mnist(train=True, reshape=reshape, fashion=fashion)
         test_images, test_labels = load_mnist(train=False, fashion=fashion)
@@ -237,8 +230,8 @@ if __name__ == '__main__':
 
     elif dataset == "dexnet":
         print('Loading DexNet...')
-        classes = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
-        #classes = np.arange(100)
+        #classes = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
+        classes = np.arange(10)
         train_images, train_labels = load_dexnet(
             train=True, num_samples=int(dataset_size * 0.8), given_classes=classes)
         test_images, test_labels = load_dexnet(
@@ -268,12 +261,8 @@ if __name__ == '__main__':
         input_shape = (batch_size, ) + IMAGE_SHAPE + (1, )
 
     encoder_init, encode, decoder_init, decode = define_vae(latent_size)
-    if dataset == "fashion" or dataset == "mnist":
-        regressor = mnist_regressor
-    elif dataset == "dexnet":
-        regressor = dexnet_regressor
-    else:
-        raise ValueError("Regressor for dataset has not been defined")
+    regressor = mnist_regressor
+
     predictor_init, predict = regressor()
     _, encoder_init_params = encoder_init(encoder_init_rng, input_shape)
     _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, latent_size))
@@ -324,12 +313,18 @@ if __name__ == '__main__':
 
     opt_state = opt_init(init_params)
     beta_schedule = np.linspace(beta_init, beta_final, num_epochs)
-    #print(train_images[0], train_images[10])
-    print(train_images[0].mean(), train_images[10].mean())
-    print(train_images[0].min(), train_images[10].min())
-    print(train_images[0].max(), train_images[10].max())
+    print(train_images.shape)
+    img_examples = (4, 7, 5000, 15000, 17000, 23500)
+    fig, axes = plt.subplots((len(img_examples)))
+    for ax, train_ex in zip(axes, img_examples):
+        ax.imshow(np.array(train_images[train_ex]).reshape(IMAGE_SHAPE))
+        ax.imshow(np.array(train_images[train_ex]).reshape(IMAGE_SHAPE))
+    plt.show()
+    print(train_images[img_examples[0]].mean(), train_images[img_examples[1]].mean())
+    print(train_images[img_examples[0]].min(), train_images[img_examples[1]].min())
+    print(train_images[img_examples[0]].max(), train_images[img_examples[1]].max())
     
-    print(train_labels[0], train_labels[10])
+    print(train_labels[0], train_labels[10000])
     print('Starting training!')
     for epoch in range(num_epochs):
         tic = time.time()

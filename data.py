@@ -109,7 +109,6 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
         if num_samples == -1:
             num_per_class = min_samples * given_classes.shape[0]
         elif num_samples > min_samples * given_classes.shape[0]:
-            print(min_samples, num_samples, given_classes)
             raise ValueError(
                 "Requested more samples per class then the smallest class has samples:", min_samples)
         else:
@@ -118,7 +117,6 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
         given_classes = np.arange(0, num_classes)
         num_per_class = int(num_samples / num_classes)
     metric_array = np.empty(num_per_class * num_classes)
-    print(num_per_class)
     img_array = np.empty(
         shape=(num_per_class * given_classes.shape[0], data[0][0].shape[0]**2), dtype=object)
     # Randomly sample from the chosen classes
@@ -174,3 +172,24 @@ class NumpyLoader(data.DataLoader):
 class FlattenAndCast(object):
     def __call__(self, pic):
         return np.ravel(np.array(pic, dtype=jnp.float32))
+
+
+def load_dexnet_per_class():
+    cwd = os.path.dirname(__file__)
+    dataset_f = os.path.join(cwd, "dataset/")
+    data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
+    file_nbr = 0
+    all_files = os.listdir(data_f)
+    image_files = [file_ for file_ in all_files if 'depth_ims_tf_table_' in file_]
+    label_files = [file_ for file_ in all_files if 'object_labels_' in file_]
+    count_per_class = np.zeros(2000)
+    iteration = 0
+    for image_file, label_file in zip(image_files, label_files):
+        iteration += 1
+        if iteration % int(len(label_files) / 10) == 0:
+            print('Gone through {} out of {} files.'.format(iteration, len(label_files)))
+        image_data = np.load(os.path.join(data_f, image_file))['arr_0']
+        label_data = np.load(os.path.join(data_f, label_file))['arr_0']
+        uniques, counts = np.unique(label_data, return_counts=True)
+        count_per_class[uniques.astype(int)] += counts
+    return count_per_class

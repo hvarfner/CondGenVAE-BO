@@ -2,16 +2,16 @@
     "vae_args": {
         "latent_size": 2,
         "batch_size": 256,
-        "step_size": 1e-3,
+        "step_size": 1e-8,
         "num_epochs": 50,
         "beta_init": 0.01,
         "beta_final": 1,
-        "pred_weight": 20,
+        "pred_weight": 0,
         "n_samples": 1,
         "vae_type": "vanilla",
         "mlp_type": "regression",
         "dataset": "dexnet",
-        "dataset_size": 5000
+        "dataset_size": 40000
     },
     "opt_args": {
         "latent_size": 2,
