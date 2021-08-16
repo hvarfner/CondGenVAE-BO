@@ -190,6 +190,7 @@ if __name__ == '__main__':
     vae_type = config['vae_type']
     latent_size = config['latent_size']
     mlp_type = config['mlp_type']
+    training_points = config['training_points']
 
     nrow, ncol = 10, 10  # sampled image grid size
     test_rng = random.PRNGKey(1)  # fixed prng key for evaluation
@@ -202,16 +203,19 @@ if __name__ == '__main__':
         test_labels = test_labels / 9
         print(f'Loaded MNIST dataset of shape {train_images.shape}')
         print(f'Sample shape: {train_images[0].shape}')
-        print(train_labels.shape, train_labels)
+        print(train_labels[0:10])
     else:
         print('Loading DexNet...')
         train_images, train_labels = load_dexnet(
-            train=True, num_samples=int(n_samples * 0.8))
+            train=True, num_samples=int(training_points * 0.8))
         test_images, test_labels = load_dexnet(
-            train=False, num_samples=int(n_samples * 0.2))
+            train=False, num_samples=int(training_points * 0.2))
         print(f'Loaded DexNet dataset of shape {train_images.shape}')
-        print(train_images[0].shape)
-        print(train_labels.shape, train_labels)
+        train_max, train_min = train_images.max(), train_images.min() 
+        train_images = (train_images - train_min) / (train_max - train_min)
+        test_images = (test_images - train_min) / (train_max - train_min)
+        print(train_images.min(), train_images.max())
+        print(train_labels[0:10])
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
 
@@ -266,7 +270,7 @@ if __name__ == '__main__':
         params = get_params(opt_state)
         elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
 
-        # Relic from when the MNIST images where binarized
+        # Relic from when the MNIST images were binarized
         binarized_test = test_images
 
         test_elbo = elbo(elbo_rng, params, binarized_test, beta=1) / images.shape[0]
@@ -296,7 +300,6 @@ if __name__ == '__main__':
     # plot images and their prediction
     params = get_params(opt_state)
     elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
-    binarized_test = random.bernoulli(data_rng, test_images)
     sampled_images = np.random.choice(TEST_SIZE, 20, replace=False)
 
     trained_params = optimizers.unpack_optimizer_state(opt_state)

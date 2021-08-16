@@ -119,9 +119,10 @@ def load_dexnet(train=True, num_samples=-1):
         for j in range(num_per_class):
             idx = int(rng.random() * len(class_idxs[0]) + class_idxs[0][0])
             img_array[i * num_per_class + j] = jnp.asarray(data[0][idx].flatten())
-            metric_array[i * num_per_class + j] = data[2][idx]
+            metric_array[i * num_per_class + j] = i
     jax_img_array = jnp.asarray(img_array, dtype=jnp.float32)
     jax_metric_array = jnp.asarray(metric_array, dtype=jnp.float32)
+    
     return jax_img_array, jax_metric_array
 
 

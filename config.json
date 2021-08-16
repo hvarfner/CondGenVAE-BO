@@ -6,10 +6,11 @@
         "num_epochs": 50,
         "beta_init": 0.01,
         "beta_final": 1,
-        "pred_weight": 1000,
-        "n_samples": 500,
+        "pred_weight": 10,
+        "n_samples": 10,
+        "training_points": 4000,
         "vae_type": "vanilla",
-        "fashion": true,
+        "fashion": false,
         "mlp_type": "regression"
     },
     "opt_args": {
