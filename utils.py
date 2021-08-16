@@ -11,15 +11,16 @@ IMAGE_SHAPE = (32, 32)
 def plot_latent_space(all_samples, values):
     colors = ['b', 'g', 'r', 'c', 'y', 'k', 'm', 'purple', 'orange', 'darkgrey']
 
-    fig = plt.figure(figsize=(16,9))
-    plt.scatter(all_samples[:, 0], all_samples[:, 1], c=values, cmap=matplotlib.colors.ListedColormap(colors))
+    fig = plt.figure(figsize=(16, 9))
+    plt.scatter(all_samples[:, 0], all_samples[:, 1], c=values,
+                cmap=matplotlib.colors.ListedColormap(colors))
 
     cb = plt.colorbar()
     cb.set_ticklabels(colors)
     plt.show()
     plt.savefig('latentspace.png')
 
-
+obviously
 def get_best_point():
     df = pd.read_csv('mnist_output_samples.csv')
     best_value = np.argmin(df.loc[:, 'Value'])

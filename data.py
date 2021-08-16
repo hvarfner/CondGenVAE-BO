@@ -34,6 +34,11 @@ Label 	Description
 
 
 def load_mnist(train=True, reshape=True, fashion=False):
+<<<<<<< HEAD
+=======
+    global IMAGE_SHAPE, TEST_SIZE
+    IMAGE_SHAPE = (28, 28)
+>>>>>>> 3f9f247e4a13f8fb005d6068d5db174f07852324
     if fashion:
         mnist_dataset = FashionMNIST('/tmp/fashion_mnist/', download=True, train=train)
     else:
@@ -81,7 +86,9 @@ def get_class_indices(object_labels, num):
     return np.where(object_labels == num)
 
 
-def load_dexnet(train=True, num_samples=-1):
+def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
+    global IMAGE_SHAPE, TEST_SIZE
+    IMAGE_SHAPE = (32, 32)
     cwd = os.getcwd()
     dataset_f = os.path.join(cwd, "dataset/")
     data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
@@ -92,31 +99,39 @@ def load_dexnet(train=True, num_samples=-1):
         os.system("tar - xzf dexnet_2.tar.gz")
         os.system("rm dexnet_2.tar.gz")
         os.chdir(cwd)
-    # Load hand-picked classes
-    classes_for_learning = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
-    data = fetch_dexnet_files(data_f, classes_for_learning[-1])
-    # Find class with least amount of samples and possibly limit
-    min_samples = 10000000
-    for i in classes_for_learning:
-        if len(get_class_indices(data[1], i)[0]) < min_samples:
-            min_samples = len(get_class_indices(data[1], i)[0])
-    if num_samples == -1:
-        num_per_class = min_samples * classes_for_learning.shape[0]
-    elif num_samples > min_samples * classes_for_learning.shape[0]:
-        raise ValueError("Requested more samples per class then the smallest class has samples")
+    if given_classes:
+        num_classes = given_classes[-1]
+    data = fetch_dexnet_files(data_f, num_classes)
+    if given_classes:
+        num_classes = given_classes.shape[0]
+        # Find class with least amount of samples and possibly limit
+        min_samples = 10000000
+        for i in given_classes:
+            if len(get_class_indices(data[1], i)[0]) < min_samples:
+                min_samples = len(get_class_indices(data[1], i)[0])
+        if num_samples == -1:
+            num_per_class = min_samples * given_classes.shape[0]
+        elif num_samples > min_samples * given_classes.shape[0]:
+            raise ValueError(
+                "Requested more samples per class then the smallest class has samples:", min_samples)
+        else:
+            num_per_class = int(num_samples / given_classes.shape[0])
     else:
-        num_per_class = int(num_samples / classes_for_learning.shape[0])
+        given_classes = np.arange(0, num_classes)
+        num_per_class = int(num_samples / num_classes)
+    metric_array = np.empty(num_per_class * num_classes)
     img_array = np.empty(
-        shape=(num_per_class * classes_for_learning.shape[0], data[0][0].shape[0]**2), dtype=object)
-    metric_array = np.empty(num_per_class * classes_for_learning.shape[0])
+        shape=(num_per_class * given_classes.shape[0], data[0][0].shape[0]**2), dtype=object)
     # Randomly sample from the chosen classes
     if train:
         rng = np.random.default_rng(12345)
     else:
         rng = np.random.default_rng(54321)
-    for i in range(classes_for_learning.shape[0]):
-        class_idxs = get_class_indices(data[1], classes_for_learning[i])
+        TEST_SIZE = num_samples
+    for i in range(given_classes.shape[0]):
+        class_idxs = get_class_indices(data[1], given_classes[i])
         for j in range(num_per_class):
+            # Misses handling of empty classes
             idx = int(rng.random() * len(class_idxs[0]) + class_idxs[0][0])
             img_array[i * num_per_class + j] = jnp.asarray(data[0][idx].flatten())
             metric_array[i * num_per_class + j] = i
