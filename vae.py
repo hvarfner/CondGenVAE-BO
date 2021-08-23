@@ -53,11 +53,13 @@ def sample_latent_space(rng, params, images):
     return sample
 
 
-def elbo(rng, params, images, beta=1):
+def elbo(rng, params, images, beta=1, sep=False):
     encoder_params, decoder_params, _ = params
     mu_z, sigmasq_z = encode(encoder_params, images)
     sample = gaussian_sample(rng, mu_z, sigmasq_z)
     logits = decode(decoder_params, sample)
+    if sep:
+        return (bernoulli_logpdf(logits, images), -beta * gaussian_kl(mu_z, sigmasq_z), jnp.sum(logits), jnp.sum(images)) 
     return bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
 
 
@@ -80,7 +82,6 @@ def elbo_and_pred_loss(rng, params, images, labels, beta, pred_weight, n_samples
         logits = decode(decoder_params, samples)
         iwelbo_loss += bernoulli_logpdf(logits, images) - beta * gaussian_kl(mu_z, sigmasq_z)
     iwelbo_loss /= n_samples
-
     # MSE loss
     mu_z, sigmasq_z = encode(encoder_params, images)
     samples = gaussian_sample(predict_rng, mu_z, sigmasq_z)
@@ -136,6 +137,25 @@ def init_vanilla_vae(latent_size):
         Dense(256), Relu,
         Dense(512), Relu,
         Dense(512), Relu,
+        Dense(np.prod(IMAGE_SHAPE))
+    )
+    return encoder_init, encode, decoder_init, decode
+
+
+# define the VAE - one of FanOuts is softplus due to non-negative variance
+def init_vanilla_vae(latent_size):
+    encoder_init, encode = stax.serial(
+        Dense(64), Relu,
+        Dense(64), Relu,
+        Dense(32), Relu,
+        FanOut(2),
+        stax.parallel(Dense(latent_size), stax.serial(Dense(latent_size), Softplus)),
+    )
+
+    decoder_init, decode = stax.serial(
+        Dense(32), Relu,
+        Dense(64), Relu,
+        Dense(64), Relu,
         Dense(np.prod(IMAGE_SHAPE))
     )
     return encoder_init, encode, decoder_init, decode
@@ -232,10 +252,11 @@ if __name__ == '__main__':
         print('Loading DexNet...')
         #classes = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
         classes = np.arange(10)
-        train_images, train_labels = load_dexnet(
-            train=True, num_samples=int(dataset_size * 0.8), given_classes=classes)
+        train_images, train_labels = load_dexnet(train=True, num_samples=int(dataset_size * 0.8), given_classes=classes)
+        print(f'Number of training nan values:{jnp.isnan(train_images).sum()}')
         test_images, test_labels = load_dexnet(
             train=False, num_samples=int(dataset_size * 0.2), given_classes=classes)
+        print(f'Number of test nan values:{jnp.isnan(test_images).sum()}')
         print(f'Loaded DexNet with shape of {train_images.shape}.')
     else:
         raise ValueError("Unknown dataset.")
@@ -249,12 +270,8 @@ if __name__ == '__main__':
     encoder_init_rng, decoder_init_rng, predictor_init_rng = random.split(random.PRNGKey(2), 3)
 
     if vae_type == 'vanilla':
-        if dataset == 'dexnet':
-            define_vae = init_vanilla_vae
-            print('Using the smaller VAE.')
-        else: 
-            define_vae = init_vanilla_vae
-            print('Using the larger VAE.')
+        define_vae = init_vanilla_vae
+
         input_shape = (batch_size, np.prod(IMAGE_SHAPE))
     else:
         define_vae = init_conv_vae
@@ -274,6 +291,7 @@ if __name__ == '__main__':
     train_labels = jax.device_put(train_labels.reshape(-1, 1))
     test_images = jax.device_put(test_images[0:TEST_SIZE])
     test_labels = jax.device_put(test_labels[0:TEST_SIZE].reshape(-1, 1))
+
     print('Train and test are put on device.')
 
     def split_and_binarize_batch(rng, i, images, labels, binarize):
@@ -314,34 +332,51 @@ if __name__ == '__main__':
     opt_state = opt_init(init_params)
     beta_schedule = np.linspace(beta_init, beta_final, num_epochs)
     print(train_images.shape)
-    img_examples = (4, 7, 5000, 15000, 17000, 23500)
+    '''img_examples = (4, 7, 5000, 15000, 17000, 23500)
     fig, axes = plt.subplots((len(img_examples)))
     for ax, train_ex in zip(axes, img_examples):
         ax.imshow(np.array(train_images[train_ex]).reshape(IMAGE_SHAPE))
-        ax.imshow(np.array(train_images[train_ex]).reshape(IMAGE_SHAPE))
-    plt.show()
-    print(train_images[img_examples[0]].mean(), train_images[img_examples[1]].mean())
-    print(train_images[img_examples[0]].min(), train_images[img_examples[1]].min())
-    print(train_images[img_examples[0]].max(), train_images[img_examples[1]].max())
-    
-    print(train_labels[0], train_labels[10000])
+        ax.set_title(train_labels[train_ex])
+        print(train_images[img_examples[0]])
+    #plt.show()
+
+    img_examples = (4, 7, 5000, 6000, 7000, 3500)
+    fig, axes = plt.subplots((len(img_examples)))
+    for ax, train_ex in zip(axes, img_examples):
+        ax.imshow(np.array(test_images[train_ex]).reshape(IMAGE_SHAPE))
+        ax.set_title(test_labels[train_ex])
+        print(test_images[img_examples[0]])
+    plt.show()'''
     print('Starting training!')
+    all_elbos = np.zeros(num_epochs)
+    all_kl = np.zeros(num_epochs)
+    all_lh = np.zeros(num_epochs)
     for epoch in range(num_epochs):
         tic = time.time()
         opt_state = run_epoch(random.PRNGKey(epoch), opt_state, train_images,
                               train_labels, beta=beta_schedule[epoch], binarize=binarize)
         test_elbo, test_mse, sampled_images, latent_samples = evaluate(
             opt_state, test_images, test_labels, binarize=binarize)
-
+        all_elbos[epoch] = test_elbo
+        params = get_params(opt_state)
+        bern, kl, logs, imgs = elbo(random.PRNGKey(1), params, test_images, beta=1, sep=True)
+        all_kl[epoch] = kl
+        all_lh[epoch] = bern
+        
         print("Ep. {: 3d} ---- ELBO: {} ---- MSE: {} ---- Time: {:.3f} sec".format(epoch,
               test_elbo, test_mse, time.time() - tic))
+        print("Log Likelihood: {} ---- KL: {}, Logits: {}, Images: {}".format(bern, kl, logs, imgs))
         plt.imsave(imfile.format(epoch), sampled_images, cmap=plt.cm.gray)
     plt.scatter(latent_samples[:, 0], latent_samples[:, 1], c=test_labels,
                 cmap='viridis', s=4)
     cb = plt.colorbar()
     cb.set_ticklabels(list(range(10)))
-
+    plt.show()
     # plot images and their prediction
+    plt.plot(np.arange(num_epochs), all_elbos)
+    #plt.plot(np.arange(num_epochs), all_kl / all_kl.min())
+    #plt.plot(np.arange(num_epochs), all_lh / all_lh.min())
+    plt.show()
     params = get_params(opt_state)
     elbo_rng, data_rng, image_rng = random.split(test_rng, 3)
     sampled_images = np.random.choice(TEST_SIZE, 20, replace=False)

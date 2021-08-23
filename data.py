@@ -99,6 +99,7 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
         os.chdir(cwd)
     if given_classes is not None:
         num_classes = given_classes[-1]
+        print(f'Retrieving class {num_classes}')
         data = fetch_dexnet_files(data_f, num_classes)
         num_classes = given_classes.shape[0]
         # Find class with least amount of samples and possibly limit
@@ -133,21 +134,28 @@ def load_dexnet(train=True, num_samples=-1, given_classes=None, num_classes=0):
             img_array[i * num_per_class + j] = jnp.asarray(data[0][idx].flatten())
             metric_array[i * num_per_class + j] = i
     img_array_min, img_array_max = img_array.min(), img_array.max()
-    img_array = (img_array - img_array_min) / (img_array_max - img_array_min)
+
+    #print(f'Number of nan values before minmax:{np.isnan(img_array).sum()}')
+        
+    #img_array = (img_array - img_array_min) / (img_array_max - img_array_min)
+    #print(f'Number of nan after before minmax:{np.isnan(img_array).sum()}')
     metric_array = metric_array / 9
     jax_img_array = jnp.asarray(img_array, dtype=jnp.float32)
     
     def per_example_minmax(arr):
         arrmin, arrmax = np.min(arr), np.max(arr)
 
-        new_arr = np.round(((arr - arrmin) / (arrmax - arrmin)) * 255)
-        new_arr = new_arr.reshape(32, 32)[2:30, 2:30].reshape(-1) / 255
-        return 1 - new_arr
+        new_arr = (arr - arrmin) / (arrmax - arrmin)
+        new_arr = new_arr.reshape(32, 32)[2:30, 2:30].reshape(-1)
+        return 1 - new_arr, arrmax - arrmin
 
-    norm_array = vmap(per_example_minmax, 0)(jax_img_array)    
+    norm_array, arrdiff = vmap(per_example_minmax, 0)(jax_img_array) 
+    #print(f'Number of nan after vectorize:{jnp.isnan(norm_array).sum()}')
+    non_flat_images = arrdiff > 1e-2
+
     jax_metric_array = jnp.asarray(metric_array, dtype=jnp.float32)
     
-    return norm_array, jax_metric_array
+    return jnp.array(norm_array[non_flat_images], dtype=jnp.float32), jax_metric_array[non_flat_images]
 
 
 class NumpyLoader(data.DataLoader):
@@ -174,7 +182,7 @@ class FlattenAndCast(object):
         return np.ravel(np.array(pic, dtype=jnp.float32))
 
 
-def load_dexnet_per_class():
+def load_dexnet_per_class(classes=[]):
     cwd = os.path.dirname(__file__)
     dataset_f = os.path.join(cwd, "dataset/")
     data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
@@ -184,12 +192,29 @@ def load_dexnet_per_class():
     label_files = [file_ for file_ in all_files if 'object_labels_' in file_]
     count_per_class = np.zeros(2000)
     iteration = 0
+    all_images = np.array([])
+    all_labels = np.array([])
     for image_file, label_file in zip(image_files, label_files):
         iteration += 1
         if iteration % int(len(label_files) / 10) == 0:
             print('Gone through {} out of {} files.'.format(iteration, len(label_files)))
         image_data = np.load(os.path.join(data_f, image_file))['arr_0']
         label_data = np.load(os.path.join(data_f, label_file))['arr_0']
+        correct_labels = np.isin(label_data, classes)
+
+        try:
+            if len(all_images) == 0:
+                all_images = image_data[correct_labels]
+                all_labels = label_data[correct_labels]
+            else:    
+                all_images = np.append(all_images, image_data[correct_labels], axis=0)
+                all_labels = np.append(all_labels, label_data[correct_labels])
+                
+        except:
+            print(image_data.shape, label_data.shape)
+            print('NOT THE SAME SIZE ')
+        print(all_images.shape)
+
         uniques, counts = np.unique(label_data, return_counts=True)
         count_per_class[uniques.astype(int)] += counts
-    return count_per_class
+    return count_per_class, all_images, all_labels
