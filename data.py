@@ -213,8 +213,12 @@ def load_dexnet_per_class(classes=[]):
         except:
             print(image_data.shape, label_data.shape)
             print('NOT THE SAME SIZE ')
-        print(all_images.shape)
+
 
         uniques, counts = np.unique(label_data, return_counts=True)
         count_per_class[uniques.astype(int)] += counts
     return count_per_class, all_images, all_labels
+
+
+def load_saved_dexnet():
+    
