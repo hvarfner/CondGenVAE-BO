@@ -16,8 +16,8 @@ def numpy_collate(batch):
         return np.array(batch)
 
 
-IMAGE_SHAPE = 0
-TEST_SIZE = 0
+IMAGE_SHAPE = (28, 28)
+TEST_SIZE = 2000
 
 '''
 Label 	Description
@@ -186,7 +186,7 @@ def load_dexnet_per_class(classes=[]):
     cwd = os.path.dirname(__file__)
     dataset_f = os.path.join(cwd, "dataset/")
     data_f = os.path.join(dataset_f, "3dnet_kit_06_13_17")
-    file_nbr = 0
+    file_nbr = 0    
     all_files = os.listdir(data_f)
     image_files = [file_ for file_ in all_files if 'depth_ims_tf_table_' in file_]
     label_files = [file_ for file_ in all_files if 'object_labels_' in file_]
@@ -201,24 +201,48 @@ def load_dexnet_per_class(classes=[]):
         image_data = np.load(os.path.join(data_f, image_file))['arr_0']
         label_data = np.load(os.path.join(data_f, label_file))['arr_0']
         correct_labels = np.isin(label_data, classes)
-
         try:
-            if len(all_images) == 0:
-                all_images = image_data[correct_labels]
-                all_labels = label_data[correct_labels]
-            else:    
-                all_images = np.append(all_images, image_data[correct_labels], axis=0)
-                all_labels = np.append(all_labels, label_data[correct_labels])
-                
+            image_data = image_data[correct_labels]
+            label_data = label_data[correct_labels]
         except:
             print(image_data.shape, label_data.shape)
             print('NOT THE SAME SIZE ')
+            continue
 
+        if len(image_data) > 0:
+            img_array_min, img_array_max = image_data.min(), image_data.max()
 
-        uniques, counts = np.unique(label_data, return_counts=True)
-        count_per_class[uniques.astype(int)] += counts
+            jax_img_array = jnp.asarray(image_data, dtype=jnp.float32)
+
+            def per_example_minmax(arr):
+                arrmin, arrmax = np.min(arr), np.max(arr)
+
+                new_arr = (arr - arrmin) / (arrmax - arrmin)
+                new_arr = new_arr.reshape(32, 32)[2:30, 2:30].reshape(-1)
+                return 1 - new_arr, arrmax - arrmin
+
+            norm_array, arrdiff = vmap(per_example_minmax, 0)(jax_img_array) 
+            non_flat_images = arrdiff > 1e-2
+            image_data = np.array(norm_array[non_flat_images])
+            label_data  = label_data[np.array(non_flat_images)]
+
+            if len(all_images) == 0:
+                all_images = image_data
+                all_labels = label_data
+            else:    
+
+                all_images = np.append(all_images, image_data, axis=0)
+                all_labels = np.append(all_labels, label_data)
+                print(f'Added a file of {len(label_data)} examples.')
+
+            uniques, counts = np.unique(label_data, return_counts=True)
+            count_per_class[uniques.astype(int)] += counts
     return count_per_class, all_images, all_labels
 
 
 def load_saved_dexnet():
-    
+    train_images = np.load(os.path.join(os.path.dirname(__file__), 'dataset/train_images.npy'))
+    test_images = np.load(os.path.join(os.path.dirname(__file__), 'dataset/test_images.npy'))
+    train_labels = np.load(os.path.join(os.path.dirname(__file__), 'dataset/train_labels.npy'))
+    test_labels = np.load(os.path.join(os.path.dirname(__file__), 'dataset/test_labels.npy'))
+    return train_images, test_images, train_labels, test_labels

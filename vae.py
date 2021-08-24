@@ -15,7 +15,7 @@ from jax.experimental.stax import Dense, FanOut, Relu, Softplus,\
 from jax.random import multivariate_normal
 import numpy as np
 import tensorflow_probability as tfp
-from data import load_mnist, load_dexnet
+from data import load_mnist, load_dexnet, load_saved_dexnet
 from utils import plot_latent_space
 import argparse
 
@@ -251,13 +251,12 @@ if __name__ == '__main__':
     elif dataset == "dexnet":
         print('Loading DexNet...')
         #classes = np.array([0, 1, 2, 4, 6, 13, 18, 19, 20, 23])
-        classes = np.arange(10)
-        train_images, train_labels = load_dexnet(train=True, num_samples=int(dataset_size * 0.8), given_classes=classes)
+
+        train_images, test_images, train_labels, test_labels = load_saved_dexnet()
         print(f'Number of training nan values:{jnp.isnan(train_images).sum()}')
-        test_images, test_labels = load_dexnet(
-            train=False, num_samples=int(dataset_size * 0.2), given_classes=classes)
         print(f'Number of test nan values:{jnp.isnan(test_images).sum()}')
         print(f'Loaded DexNet with shape of {train_images.shape}.')
+        print(f'Loaded DexNet with shape of {test_images.shape}.')
     else:
         raise ValueError("Unknown dataset.")
 
@@ -285,7 +284,7 @@ if __name__ == '__main__':
     _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, latent_size))
     _, predictor_init_params = predictor_init(predictor_init_rng, (batch_size, latent_size))
     init_params = (encoder_init_params, decoder_init_params, predictor_init_params)
-
+    print(train_images[1])
     opt_init, opt_update, get_params = optimizers.momentum(step_size, mass=0.9)
     train_images = jax.device_put(train_images)
     train_labels = jax.device_put(train_labels.reshape(-1, 1))
@@ -332,13 +331,13 @@ if __name__ == '__main__':
     opt_state = opt_init(init_params)
     beta_schedule = np.linspace(beta_init, beta_final, num_epochs)
     print(train_images.shape)
-    '''img_examples = (4, 7, 5000, 15000, 17000, 23500)
+    img_examples = (4, 7, 5000, 15000, 17000, 23500)
     fig, axes = plt.subplots((len(img_examples)))
     for ax, train_ex in zip(axes, img_examples):
         ax.imshow(np.array(train_images[train_ex]).reshape(IMAGE_SHAPE))
         ax.set_title(train_labels[train_ex])
         print(train_images[img_examples[0]])
-    #plt.show()
+    plt.show()
 
     img_examples = (4, 7, 5000, 6000, 7000, 3500)
     fig, axes = plt.subplots((len(img_examples)))
@@ -346,7 +345,7 @@ if __name__ == '__main__':
         ax.imshow(np.array(test_images[train_ex]).reshape(IMAGE_SHAPE))
         ax.set_title(test_labels[train_ex])
         print(test_images[img_examples[0]])
-    plt.show()'''
+    plt.show()
     print('Starting training!')
     all_elbos = np.zeros(num_epochs)
     all_kl = np.zeros(num_epochs)
