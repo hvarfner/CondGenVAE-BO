@@ -1,12 +1,12 @@
 {
     "vae_args": {
         "latent_size": 4,
-        "batch_size": 512,
+        "batch_size": 256,
         "step_size": 1e-4,
-        "num_epochs": 125,
+        "num_epochs": 250,
         "beta_init": 0.0001,
-        "beta_final": 0.1,
-        "pred_weight": 10,
+        "beta_final": 1,
+        "pred_weight": 0,
         "n_samples": 1,
         "vae_type": "vanilla",
         "mlp_type": "regression",
@@ -14,7 +14,7 @@
         "dataset_size": 40000
     },
     "opt_args": {
-        "latent_size": 2,
-        "num_iterations": 50
+        "latent_size": 4,
+        "num_iterations": 30
     }
 }

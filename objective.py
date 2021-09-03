@@ -28,12 +28,15 @@ def objective_function(point, decode, decoder_params, digit=0):
 # tries to find the prediction with the lowest variance (most uncertain pred)    
 def brightest_item_objective_function(point, decode, decoder_params, digit=0, brightness=0, fashion=True):
 
-    X = np.array(decode(decoder_params, point).reshape(1, 1, 28, 28)) 
+    X = np.array(decode(decoder_params, point).reshape(1, 1, 28, 28))
+    X_bright = (X - X.min()) / (X.max() - X.min())
     if fashion:
         onnx_session = onnxruntime.InferenceSession('models/fashion-mnist.onnx')
     else:
         onnx_session = onnxruntime.InferenceSession('models/mnist.onnx')
     onnx_inputs = {onnx_session.get_inputs()[0].name : X}
     onnx_predictions = onnx_session.run(None, onnx_inputs)[0]
-    print(point, onnx_predictions[:, digit][0])
-    return -onnx_predictions[:, digit][0] + brightness * np.sum(X)
+    print(point)
+    print(X.max(), X.min())
+    print(f'Prediction {onnx_predictions[:, digit][0]}, Brightness: {brightness * np.sum(X_bright)}')
+    return -onnx_predictions[:, digit][0] - brightness * np.sum(X_bright)

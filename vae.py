@@ -18,8 +18,9 @@ import tensorflow_probability as tfp
 from data import load_mnist, load_dexnet, load_saved_dexnet
 from utils import plot_latent_space
 import argparse
-
-
+IMAGE_SHAPE = (28, 28)
+TEST_SIZE = 10000
+plot = False
 def Reshape(new_shape):
     """Layer construction function for flattening all but the leading dim."""
     def init_fun(rng, input_shape):
@@ -257,10 +258,11 @@ if __name__ == '__main__':
         print(f'Number of test nan values:{jnp.isnan(test_images).sum()}')
         print(f'Loaded DexNet with shape of {train_images.shape}.')
         print(f'Loaded DexNet with shape of {test_images.shape}.')
+        train_labels = train_labels / 9
+        test_labels = test_labels / 9
     else:
         raise ValueError("Unknown dataset.")
 
-    from data import TEST_SIZE, IMAGE_SHAPE
 
     num_complete_batches, leftover = divmod(train_images.shape[0], batch_size)
     num_batches = num_complete_batches + bool(leftover)
@@ -284,7 +286,6 @@ if __name__ == '__main__':
     _, decoder_init_params = decoder_init(decoder_init_rng, (batch_size, latent_size))
     _, predictor_init_params = predictor_init(predictor_init_rng, (batch_size, latent_size))
     init_params = (encoder_init_params, decoder_init_params, predictor_init_params)
-    print(train_images[1])
     opt_init, opt_update, get_params = optimizers.momentum(step_size, mass=0.9)
     train_images = jax.device_put(train_images)
     train_labels = jax.device_put(train_labels.reshape(-1, 1))
@@ -324,28 +325,27 @@ if __name__ == '__main__':
 
         test_elbo = elbo(elbo_rng, params, binarized_test, beta=1) / images.shape[0]
         test_mse = regression_loss(elbo_rng, params, binarized_test, labels)
-        sampled_images = image_sample(image_rng, params, nrow, ncol)
+        sampled_images = image_sample(image_rng, params, 6, 1)
         latent_samples = sample_latent_space(elbo_rng, params, images)
         return test_elbo, test_mse, sampled_images, latent_samples
 
     opt_state = opt_init(init_params)
     beta_schedule = np.linspace(beta_init, beta_final, num_epochs)
     print(train_images.shape)
-    img_examples = (4, 7, 5000, 15000, 17000, 23500)
-    fig, axes = plt.subplots((len(img_examples)))
-    for ax, train_ex in zip(axes, img_examples):
-        ax.imshow(np.array(train_images[train_ex]).reshape(IMAGE_SHAPE))
-        ax.set_title(train_labels[train_ex])
-        print(train_images[img_examples[0]])
-    plt.show()
+    _, counts = np.unique(train_labels, return_counts=True)
+    _, counts = np.unique(test_labels, return_counts=True)
+    
+    print(counts)
+    if True:
+        img_examples = np.arange(0, 70000, 13000)
+        fig, axes = plt.subplots(1, (len(img_examples)), figsize=(20, 6))
+        for ax, train_ex in zip(axes, img_examples):
+            ax.imshow(np.array(train_images[train_ex]).reshape(IMAGE_SHAPE), cmap=plt.cm.gray)
+            ax.get_xaxis().set_ticks([])
+            ax.get_yaxis().set_ticks([])
+        plt.tight_layout()
+        plt.show()
 
-    img_examples = (4, 7, 5000, 6000, 7000, 3500)
-    fig, axes = plt.subplots((len(img_examples)))
-    for ax, train_ex in zip(axes, img_examples):
-        ax.imshow(np.array(test_images[train_ex]).reshape(IMAGE_SHAPE))
-        ax.set_title(test_labels[train_ex])
-        print(test_images[img_examples[0]])
-    plt.show()
     print('Starting training!')
     all_elbos = np.zeros(num_epochs)
     all_kl = np.zeros(num_epochs)

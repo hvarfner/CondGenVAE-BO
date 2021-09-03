@@ -28,9 +28,9 @@ if __name__ == '__main__':
 
     latent_size = config['latent_size']
     n_iter = config['num_iterations']
-    optimize_digit = 3
+    optimize_digit = int(sys.argv[1])  # digit 2 works well, 9 works well, 6 works fairly well, 0 works OK - well? 
     fashion = True
-    brightness = 0
+    brightness = float(sys.argv[2])
     '''
     Label 	Description
     0 	T-shirt/top
@@ -52,7 +52,6 @@ if __name__ == '__main__':
         with open(f'models/trained_parameters_{latent_size}.pkl', 'rb') as f:
             trained_params = pickle.load(f)
     
-
     best_opt_state = optimizers.pack_optimizer_state(trained_params)
     opt_init, opt_update, get_params = optimizers.momentum(0, mass=0)
     params = get_params(best_opt_state)
@@ -66,7 +65,7 @@ if __name__ == '__main__':
                         brightness=brightness
                 )
     
-    bounds = [{'name': f'x{i}', 'type': 'continuous', 'domain': (-3.0, 3.0)}\
+    bounds = [{'name': f'x{i}', 'type': 'continuous', 'domain': (-2, 2)}\
          for i in range(latent_size)]
     bayes_opt = BayesianOptimization(
                                 f=objective, 
@@ -74,7 +73,7 @@ if __name__ == '__main__':
                                 model_type='GP',
                                 acquisition_type ='EI',
                                 acquisition_jitter = 0.01,
-                                initial_design_numdata = 2,
+                                initial_design_numdata = 20,
                                 exact_feval=True,
                                 verbosity=True)
    
@@ -86,6 +85,8 @@ if __name__ == '__main__':
     best_value = np.argmin(y)
     image = decode(decoder_params, X[best_value]).reshape(28, 28)
     plt.imshow(image, cmap='gray')
+    print(best_value)
+    print(bayes_opt.fx_opt, bayes_opt.x_opt)
     try:
         bayes_opt.plot_acquisition()
     except:
